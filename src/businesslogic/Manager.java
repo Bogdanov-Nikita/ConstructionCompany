@@ -19,6 +19,9 @@ public class Manager extends Role{
     public final static int ESTIMATE_ERROR_CAN_NOT_ADD = 0x3;                   //невозможно добавление возможно смета пуста
     public final static int ESTIMATE_ERROR_CAN_NOT_SET_COAST = 0x4;               //Coast < 0
     
+    public final static int STORAGE_NULL = 0x5;
+    public final static int WORKLIST_NULL = 0x6;
+    
     String CompanyAddress;
     
     public Manager(String CompanyAddress, int Id, String Name, String PhoneNumber) {
@@ -75,36 +78,77 @@ public class Manager extends Role{
         return flag;
     }
     
-    public void TakeResourseFromStorage(Storage store,ArrayList<Work> WorkList){
+    public ArrayList<ErrorMsg> TakeResourseFromStorage(Storage store,ArrayList<Work> WorkList,ArrayList<Resource> ProcurementList){
+        ArrayList<ErrorMsg> ErrorList = new ArrayList<>();
+        if(ProcurementList == null){
+            ProcurementList = new ArrayList<>();
+        }
         //запрос ресурсов для работ.
         if(store != null){
             if(WorkList != null){
-                for(int i = 0; i < WorkList.size(); i++){
-                    ArrayList<Resource> res = WorkList.get(i).getResources();
-                    for(int j = 0; j < res.size(); i++){
-                        int index = store.findResoursePositionByType(res.get(j).getType());
-                        if(index != -1){
-                            switch(store.TakeResources(index,res.get(j).getAmount())){
-                                case Storage.TAKE_RESORSE_SUCCESS://успешное выполнение
+                for (Work WorkList1 : WorkList) {
+                    ArrayList<Resource> res = WorkList1.getResources();
+                    for (Resource re : res) {
+                        int index = store.findResoursePositionByType(re.getType());
+                        if (index != -1) {
+                            switch (store.TakeResources(index, re.getAmount())) {
+                                case Storage.TAKE_RESORSE_SUCCESS:
+                                    //успешное выполнение
                                     break;
-                                case Storage.INSUFFICIENTLY_RESORSE://данного товара недостаточно
+                                case Storage.INSUFFICIENTLY_RESORSE:
+                                    //данного товара недостаточно
+                                    int NeedAmount = re.getAmount() - store.getResource(index).getAmount();
+                                    ProcurementList.add(new Resource(NeedAmount,
+                                            store.getResource(index).getType(),
+                                            store.getResource(index).getCoast(),
+                                            store.getResource(index).getName()));
                                     break;
-                                case Storage.RESORSE_EMPTY:// склад пуст
+                                case Storage.RESORSE_EMPTY:
+                                    //на склад данного ресурса не осталось
+                                    ProcurementList.add(re);
                                     break;
-                                case Storage.RESORSE_NOT_FOUND://на складе такой тип ресурс не найден
+                                case Storage.RESORSE_NOT_FOUND:
+                                    //на складе такой тип ресурс не найден
+                                    ErrorList.add(new ErrorMsg(Storage.RESORSE_NOT_FOUND, re.getType()));
                                     break;
-                                case Storage.STORAGE_EMPTY:// проблема с инициализацией склада
+                                case Storage.STORAGE_EMPTY:
+                                    //проблема с инициализацией склада
+                                    ErrorList.add(new ErrorMsg(Storage.STORAGE_EMPTY, -1));
                                     break;
                             }
+                        }else{
+                            ErrorList.add(new ErrorMsg(Storage.RESORSE_NOT_FOUND, -1));
                         }
                     }
                 }
+                if(!ProcurementList.isEmpty()){
+                    int flag = SendResourseToStorage(store,ProcurementList);
+                    if(flag != Storage.SEND_RESORSE_SUCCESS){
+                        ErrorList.add(new ErrorMsg(flag, -1));
+                    }
+                }
+            }else{
+                ErrorList.add(new ErrorMsg(WORKLIST_NULL, -1));
             }
+        }else{
+            ErrorList.add(new ErrorMsg(STORAGE_NULL, -1));
         }
+        return ErrorList;
     }
     
-    public void SendResourseToStorage(){
+    /*
+     * @return - возвращает успех или тип ошибки. 
+     */
+    public int SendResourseToStorage(Storage store,ArrayList<Resource> ResList){
         //отправка ресурсов на склад.
+        int Flag;
+        for (Resource ResList1 : ResList) {
+            Flag = store.SendResources(ResList1.getType(), ResList1.getAmount());
+            if (Flag != Storage.SEND_RESORSE_SUCCESS) {
+                return Flag;
+            }
+        }
+        return Storage.SEND_RESORSE_SUCCESS;
     }
     
     public boolean CloseOrder(boolean ClientAceptWork,Order ord,Date End){
