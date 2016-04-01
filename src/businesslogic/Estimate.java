@@ -6,131 +6,105 @@
 package businesslogic;
 
 import java.util.ArrayList;
-import java.util.Date;
 
 /**
  *
  * @author Nik
- *///Заказ
+ */
+//Смета
 public class Estimate {
     
-    boolean Open;
-    int Number;
-    double CurrentCoast;
-    double TotalCoast;
-    Date Create;
-    Date LastUpdate;
-    Date End;
-    ArrayList<EstimatePart> Epart;
+    public final static int MAIN = 0x1;
+    public final static int ADDITIONAL = 0x2;
     
-    //время брать от сервера базы данных, время не объект бизнес логики
-    public Estimate(Date Create,int Number) {
-        this.Number = Number;
-        this.Create = Create;
-        this.LastUpdate = (Date)Create.clone();
-        CurrentCoast = 0;
-        TotalCoast = 0;
-        Open = true;
-    }
+    boolean Paid;
+    int Type;
+    double Coast;
+    ArrayList<Work> WorkList;
 
-    public void setEstimate(ArrayList<EstimatePart> Epart) {
-        this.Epart = Epart;
-    }
-
-    public void setLastUpdate(Date LastUpdate) {
-        if(LastUpdate != null){
-            this.LastUpdate = LastUpdate;
-        }
-    }
-
-    public Date getCreate() {
-        return Create;
-    }
-
-    public Date getLastUpdate() {
-        return LastUpdate;
-    }
-
-    public Date getEnd() {
-        return End;
-    }
+    public Estimate(boolean Paid, int Type, double Coast, ArrayList<Work> WorkList) {
+        this.Paid = Paid;
+        this.Type = Type;
+        this.Coast = Coast;
+        this.WorkList = WorkList;
+    }    
     
-    //закрытие заказа не означает уничтожение документа!
-    public boolean CloseEstimate(Date End) {
-        if(End != null){
-            if(CurrentCoast == 0){
-                Open = false;
-                this.End = End;
-                return true;
-            }
-        }
-        return false;        
-    }
-
-    public boolean isOpen() {
-        return Open;
-    }
-    
-    
-    public void addEstimaptePart(EstimatePart e){
-        if(e != null){
-            if(Epart == null){Epart = new ArrayList<>();}
-            Epart.add(e);
-        }
-    }
-    
-    void set(int i,EstimatePart e){
-        if(Epart != null){
-            Epart.set(i, e);
-        }
-    }
-    
-    public void deleteEstimatePart(int i){
-        if(Epart != null){
-            if(i < Epart.size()){
-                Epart.remove(i);
-            }
-        }
+    public Estimate(int Type,ArrayList<Work> WorkList) {
+        this.Paid = false;
+        this.Type = Type;
+        this.Coast = 0;
+        this.WorkList = WorkList;
     }
     
     /** 
-     * @return Стоимость всего заказа
+     * @return Стоимость сметы
      */
     public double CostCalculation(){
-        if(Epart != null){
-            if(!Epart.isEmpty()){
-                Epart.stream().forEach((EpartElem) -> {
-                    TotalCoast = TotalCoast + EpartElem.CostCalculation();
+        if(WorkList != null){
+            if(!WorkList.isEmpty()){
+                WorkList.stream().forEach((WorkListElem) -> {
+                    Coast = Coast + WorkListElem.CoastCalculation();
                 });
             }
         }
-        return TotalCoast;
+        return Coast;
     }
     
-    /**
-     * пополнение счёта клиентом
-     * @param pay - количество денежных единиц внесённых клиентом.
-     * @return true в случе успеха иначе false
-     */
-    public boolean ClientPay(double pay){
-        if(pay > 0){
-            double tempCoast = CurrentCoast - pay;
-            if(tempCoast  == 0){
-                CurrentCoast = 0;
-                Open = false;
-                return true;
-            }else{
-                if(tempCoast > 0){
-                    CurrentCoast = tempCoast;
-                    return true;
-                }
+    public void add(Work e){
+        if(e != null){
+            if(WorkList == null){WorkList = new ArrayList<>();}
+            WorkList.add(e);
+        }
+    }
+    
+    public void set(int i,Work e){
+        if(WorkList != null){
+            WorkList.set(i, e);
+        }
+    }
+    
+    public void delete(int i){
+        if(WorkList != null){
+            if(i < WorkList.size()){
+                WorkList.remove(i);
             }
         }
-        return false;
     }
-    //текущая задолженность
-    public double getCurrentCoast() {
-        return CurrentCoast;
+
+    public void setCoast(double Coast) {
+        this.Coast = Coast;
+    }    
+    
+    public double getCoast() {
+        return Coast;
+    }
+
+    public void setType(int Type) {
+        this.Type = Type;
+    }
+
+    public int getType() {
+        return Type;
+    }
+
+    public void setPaid(boolean Paid) {
+        this.Paid = Paid;
+    }
+
+    public boolean isPaid() {
+        return Paid;
+    }
+    
+    public void setWorkList(ArrayList<Work> WorkList) {
+        this.WorkList = WorkList;
+    }
+    
+    public ArrayList<Work> getWorkList() {
+        return WorkList;
+    }
+    
+    public boolean isFinish(){//проверка есть ли ещё невыполнкенная работа
+        return WorkList.stream().noneMatch((WorkList1) -> (!WorkList1.isFinish()));
     }
     
 }

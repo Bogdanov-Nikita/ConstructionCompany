@@ -12,16 +12,22 @@ package businesslogic;
  */
 public abstract class Role {
     
-    int ID;
+    int Id;
     String Name;
-    String PhoneNumpber;
+    String PhoneNumber;
 
+    public Role(int Id, String Name, String PhoneNumber) {
+        this.Id = Id;
+        this.Name = Name;
+        this.PhoneNumber = PhoneNumber;
+    }
+    
     public int getID() {
-        return ID;
+        return Id;
     }
 
-    public void setID(int ID) {
-        this.ID = ID;
+    public void setID(int Id) {
+        this.Id = Id;
     }    
     
     public String getName() {
@@ -32,12 +38,12 @@ public abstract class Role {
         this.Name = Name;
     }
 
-    public String getPhoneNumpber() {
-        return PhoneNumpber;
+    public String getPhoneNumber() {
+        return PhoneNumber;
     }
     
-    public void setPhoneNumpber(String PhoneNumpber) {
-        this.PhoneNumpber = PhoneNumpber;
+    public void setPhoneNumber(String PhoneNumber) {
+        this.PhoneNumber = PhoneNumber;
     }
     
 }

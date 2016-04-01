@@ -13,9 +13,10 @@ package businesslogic;
  */
 public class Resource {
     
+    int Id;         //Идентификатор
     int Amount;     //Колиество данного ресурса.
     int Type;       //Тип ресурса.
-    double Coast;      //Цена.
+    double Coast;   //Цена.
     String Name;    //Название ресурса.
 
     /**
@@ -23,10 +24,10 @@ public class Resource {
      * Тип ресурса и Название связанны и имеют прямое соответствие.
      * @param Amount - Колиество данного ресурса.
      * @param Type - Тип ресурса.
-     * @param Name - Название ресурса.
      * @param Сoast - Цена ресурса. 
+     * @param Name - Название ресурса.
      */
-    public Resource(int Amount, int Type, String Name,double Сoast) {
+    public Resource(int Amount, int Type,double Сoast,String Name) {
         if(Amount < 0){
             this.Amount = 0;
         }else{
@@ -36,8 +37,11 @@ public class Resource {
             this.Coast = 0;
         }else{
             this.Coast = Сoast;
+        }if(Type < 0){
+            this.Type = 0;
+        }else{
+            this.Type = Type;
         }
-        this.Type = Type;
         this.Name = Name;
     }
 
@@ -89,8 +93,14 @@ public class Resource {
         this.Name = Name;
     }
 
-    public void setType(int Type) {
-        this.Type = Type;
+    public boolean setType(int Type) {
+        if(Type < 0 ){
+            this.Type = 0; 
+            return false;
+        }else{
+            this.Type = Type; 
+            return true;
+        }
     }
     
 }

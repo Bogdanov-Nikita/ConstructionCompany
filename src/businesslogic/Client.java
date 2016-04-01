@@ -9,15 +9,46 @@ package businesslogic;
  *
  * @author Nik
  */
-enum ClientType {PHYSICAL, LEGAL}
+
 public class Client extends Role{
-    int ClientType;
-    double Balanse;//количество денег на счету
+    
+    public final static int PHYSICAL = 0x1;
+    public final static int LEGAL = 0x2;
+    
+    int type;
     String Addres;
-    public boolean TakeWork(){
-        return true;
+
+    public Client(int type, String Addres, int Id, String Name, String PhoneNumber) {
+        super(Id, Name, PhoneNumber);
+        this.type = type;
+        this.Addres = Addres;
     }
     
-    public void PayEstimate(){
+    //Не учитывает требование заказчика о добавлении нового только проверяет что заказ был выполнен.
+    public boolean TakeWork(Order ord){
+            return ord.isFinish();
     }
+    
+    //процесс по оплате должен быть подтверждён менеджером
+    public void PayEstimateFull(Order ord){
+        ord.ClientPay(ord.getCurrentCoast());
+    }
+    
+    //процесс по оплате должен быть подтверждён менеджером
+    public boolean PayEstimatePart(Order ord,double pay){
+        return ord.ClientPay(pay);
+    }
+
+    public void setAddres(String Addres) {
+        this.Addres = Addres;
+    }
+
+    public String getAddres() {
+        return Addres;
+    }
+
+    public int getType() {
+        return type;
+    }
+    
 }

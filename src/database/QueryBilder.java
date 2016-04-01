@@ -13,7 +13,7 @@ package database;
 
 
 public class QueryBilder {
-    //SELECT events.id as id ,events.geo_id as geo_id FROM events where  events.id between 3955 and 3990;
+    
     public static String select(String Table,String[] columns,String whereClause, String[] selectionArgs, String groupBy,String orderBy){
         
         String SQL = "SELECT";
@@ -56,7 +56,7 @@ public class QueryBilder {
         return SQL;
     }
     
-    public static String delete (String table, ContentValues v){
+    public static String delete(String table, ContentValues v){
         
         String SQL=" ";
         
@@ -74,12 +74,12 @@ public class QueryBilder {
         return delete(table, SQL);
     }
     
-    public static String delete (String table, String whereClause){
+    public static String delete(String table, String whereClause){
         String SQL = "DELETE FROM "+ table + " WHERE "+whereClause+";";        
         return SQL;
     }
     
-    public static String insert (String table, ContentValues values) {
+    public static String insert(String table, ContentValues values) {
         String SQL = "INSERT INTO " + table + " ";
         if(!values.isEmpty()){
             String collum = "";
@@ -98,7 +98,7 @@ public class QueryBilder {
         }
         return SQL;
     }
-    public static String update (String table, ContentValues values, String whereClause, String[] whereArgs){
+    public static String update(String table, ContentValues values, String whereClause, String[] whereArgs){
         String SQL = "UPDATE "+table+" SET "; 
         if(!values.isEmpty()){
             for(int i=0;i<values.size();i++){

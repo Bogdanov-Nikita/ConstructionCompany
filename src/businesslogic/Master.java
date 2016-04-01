@@ -10,5 +10,10 @@ package businesslogic;
  * @author Nik
  */
 public class Master extends Role{
+
+    public Master(int Id, String Name, String PhoneNumber) {
+        super(Id, Name, PhoneNumber);
+    }
+    
     void CreateWorkList(){}
 }

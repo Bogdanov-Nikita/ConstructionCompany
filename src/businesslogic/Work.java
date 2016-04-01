@@ -15,10 +15,12 @@ import java.util.ArrayList;
  * количество ресурсов может быть и нулевым.
  */
 public class Work {
-    
+        
+    boolean finish;                 //Завершенно выполнение услуги или нет.
     double ServiceCoast;            //Стоимось услуги без стоимости ресурсов.
     String Description;             //Описание услуги.
-    ArrayList<Resource> Resources;  //Ресурсы.
+    ArrayList<Resource> resources;  //Ресурсы.
+    
 
     public Work(ArrayList<Resource> Resources,double ServiceCoast,String Description) {
         if(ServiceCoast < 0){
@@ -27,52 +29,96 @@ public class Work {
             this.ServiceCoast = ServiceCoast;
         }
         this.Description = Description;
-        this.Resources = Resources;
+        this.resources = Resources;
     }
     
     public void add(Resource res){
         if(res != null){
-            if(Resources == null){
-                Resources = new ArrayList<>();
+            if(resources == null){
+                resources = new ArrayList<>();
             }
-            Resources.add(res);
+            resources.add(res);
         }
     }
     
-    void set(int i,Resource e){
-        if(Resources != null){
-            Resources.set(i, e);
+    public void set(int i,Resource e){
+        if(resources != null){
+            resources.set(i, e);
         }
     }
     
-    void delete(int i){
-        if(Resources != null){
-            if(i < Resources.size()){
-                Resources.remove(i);
+    public void delete(int i){
+        if(resources != null){
+            if(i < resources.size()){
+                resources.remove(i);
             }
         }
     }
+    
     /**
-     *@return - количсетво ресурсов 
+     * @param type - тип ресурса
+     * @return - количсетво ресурсов данного типа.
      */
-    public int AmountResources(){
-        if(Resources != null){
-            return Resources.size();
+    public int amountResources(int type){
+        if(resources != null){
+            for (Resource Resource : resources) {
+                if (Resource.getType() == type) {
+                    return Resource.getAmount();
+                }
+            }
+            return 0;
         }else{
             return 0;
         }
     }
+    
     /**
      * @return - рассчёт стоимости услуги и ресурсов.
      */
-    double CostCalculation(){
+    public double CoastCalculation(){
         double Coast = ServiceCoast;
-        if(Resources != null){
-            for (Resource Resource : Resources) {
-                Coast = Coast + Resource.getCoast();
+        if(resources != null){
+            for (Resource Resource : resources) {
+                Coast = Coast + (Resource.Amount * Resource.getCoast());
             }
         }
         return Coast;
+    }
+
+    public boolean isFinish() {
+        return finish;
+    }
+
+    public void setFinish(boolean finish) {
+        this.finish = finish;
+    }
+
+    public void setResources(ArrayList<Resource> Resources) {
+        this.resources = Resources;
+    }
+    
+    public ArrayList<Resource> getResources() {
+        return resources;
+    }
+
+    public void setDescription(String Description) {
+        this.Description = Description;
+    }
+    
+    public String getDescription() {
+        return Description;
+    }
+    
+    public void setServiceCoast(double ServiceCoast) {
+        if(ServiceCoast < 0){
+            this.ServiceCoast = 0;
+        }else{
+            this.ServiceCoast = ServiceCoast;
+        }
+    }
+
+    public double getServiceCoast() {
+        return ServiceCoast;
     }
     
 }
