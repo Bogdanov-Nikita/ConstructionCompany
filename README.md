@@ -1,4 +1,4 @@
-# Строительная компания
+﻿# Строительная компания
 Заказ услуг по сторительным работам.
 
 ###Роли:
@@ -36,7 +36,10 @@
     * по безналичному расчёту.
 
 ###use-case диаграмма.
-![use-case](/uml architect prog.png)
+![use-case](/uml use case.png)
 
 ###uml диаграмма.
-![uml-diagram](/диаграмма.png)
+![uml-diagram](/uml class diagram.png)
+
+###диаграмма последовательностей
+![sequence-diagram](/getimage.png)

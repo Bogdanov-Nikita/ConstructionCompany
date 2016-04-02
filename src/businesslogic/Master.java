@@ -15,5 +15,8 @@ public class Master extends Role{
         super(Id, Name, PhoneNumber);
     }
     
+    void MakeWork(Order ord){
+        ord.setStatus(Order.WAITING_ACKNOWLEDGMENT_TAKE);
+    }
     void CreateWorkList(){}
 }
