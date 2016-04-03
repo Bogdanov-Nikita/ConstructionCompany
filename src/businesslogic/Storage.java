@@ -14,15 +14,15 @@ import java.util.ArrayList;
 public class Storage {
     
     //TakeResources
-    public final static int TAKE_RESORSE_SUCCESS = 0x1;
-    public final static int INSUFFICIENTLY_RESORSE = 0x2;
-    public final static int RESORSE_EMPTY = 0x3;
-    public final static int RESORSE_NOT_FOUND = 0x4;
-    public final static int STORAGE_EMPTY = 0x5;
+    public final static int TAKE_RESORSE_SUCCESS = 0x21;
+    public final static int INSUFFICIENTLY_RESORSE = 0x22;
+    public final static int RESORSE_EMPTY = 0x23;
+    public final static int RESORSE_NOT_FOUND = 0x24;
+    public final static int STORAGE_EMPTY = 0x25;
     //SendResources
-    public final static int SEND_RESORSE_SUCCESS = 0x6;
-    public final static int STORAGE_RESOURSE_FAIL = 0x7;
-    public final static int ADD_RESOURSE_FAIL = 0x8;
+    public final static int SEND_RESORSE_SUCCESS = 0x26;
+    public final static int STORAGE_RESOURSE_FAIL = 0x27;
+    public final static int ADD_RESOURSE_FAIL = 0x28;
     
     int Id;                         //Номер склада (на будущее если появится несколько складов)
     String Location;                //Адрес склада
@@ -70,6 +70,7 @@ public class Storage {
                         Resources.get(i).setAmount(tempAmount);
                         return TAKE_RESORSE_SUCCESS;
                     }else{
+                        Resources.get(i).setAmount(0);
                         return INSUFFICIENTLY_RESORSE;
                     }
                 }else{

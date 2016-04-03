@@ -67,8 +67,12 @@ public class Order {//Прописать определение CurrentCoast с�
         this.EstimateList = EstimateList;
     }
     
-    public void setEstimate(ArrayList<Estimate> EstimateList) {
+    public void setEstimateList(ArrayList<Estimate> EstimateList) {
         this.EstimateList = EstimateList;
+    }
+
+    public ArrayList<Estimate> getEstimateList() {
+        return EstimateList;
     }
 
     public void setLastUpdate(Date LastUpdate) {
@@ -90,7 +94,7 @@ public class Order {//Прописать определение CurrentCoast с�
     }
     
     //закрытие заказа не означает уничтожение документа!
-    public boolean CloseEstimate(Date End) {
+    public boolean CloseOrder(Date End) {
         if(End != null){//  защита от дурака на всякий случай!
             this.End = End;
             return true;
@@ -121,7 +125,7 @@ public class Order {//Прописать определение CurrentCoast с�
         this.Status = Status;
     }
     
-    public boolean addEstimapte(Estimate e){
+    public boolean addEstimate(Estimate e){
         if(e != null){
             if(EstimateList == null){EstimateList = new ArrayList<>();}
             EstimateList.add(e);
@@ -131,7 +135,7 @@ public class Order {//Прописать определение CurrentCoast с�
         }
     }
     
-    void setEstimate(int i,Estimate e){
+    public void setEstimate(int i,Estimate e){
         if(EstimateList != null){
             EstimateList.set(i, e);
         }
@@ -145,14 +149,19 @@ public class Order {//Прописать определение CurrentCoast с�
         }
     }
     
+    public Estimate getEstimate(int i){
+        return EstimateList.get(i);
+    }
+    
     /** 
      * @return Стоимость всего заказа
      */
     public double CoastCalculation(){
+        TotalCoast = 0;
         if(EstimateList != null){
             if(!EstimateList.isEmpty()){
                 EstimateList.stream().forEach((EpartElem) -> {
-                    TotalCoast = TotalCoast + EpartElem.CostCalculation();
+                    TotalCoast = TotalCoast + EpartElem.CoastCalculation();
                 });
             }
         }
@@ -182,7 +191,7 @@ public class Order {//Прописать определение CurrentCoast с�
     }
 
     public boolean setCurrentCoast(double CurrentCoast) {
-        if(CurrentCoast > 0){
+        if(CurrentCoast >= 0){
             this.CurrentCoast = CurrentCoast;
             return true;
         }else{
@@ -195,7 +204,36 @@ public class Order {//Прописать определение CurrentCoast с�
         return CurrentCoast;
     }
     
-    boolean isFinish(){
+    public boolean isFinish(){
         return EstimateList.stream().noneMatch((Estimate1) -> (!Estimate1.isFinish()));
+    }
+
+    public int getManagerID() {
+        return ManagerID;
+    }
+
+    public void setManagerID(int ManagerID) {
+        this.ManagerID = ManagerID;
+    }
+
+    public int getClientID() {
+        return ClientID;
+    }
+
+    public void setClientID(int ClientID) {
+        this.ClientID = ClientID;
+    }
+    
+    //не отсортирован и содержит дублирующие позиции!
+    public ArrayList<Work> getFullWorkList(){
+        ArrayList<Work> List =  new ArrayList<>();
+        if(getEstimateList() != null){
+            for(int i = 0; i < getEstimateList().size();i++){
+                if(!getEstimate(i).isFinish()){
+                    List.addAll(getEstimate(i).getWorkList());
+                }
+            }
+        }
+        return List;
     }
 }

@@ -39,7 +39,8 @@ public class Estimate {
     /** 
      * @return Стоимость сметы
      */
-    public double CostCalculation(){
+    public double CoastCalculation(){
+        Coast = 0;
         if(WorkList != null){
             if(!WorkList.isEmpty()){
                 WorkList.stream().forEach((WorkListElem) -> {
@@ -103,7 +104,7 @@ public class Estimate {
         return WorkList;
     }
     
-    public boolean isFinish(){//проверка есть ли ещё невыполнкенная работа
+    public boolean isFinish(){//проверка есть ли ещё невыполненная работа
         return WorkList.stream().noneMatch((WorkList1) -> (!WorkList1.isFinish()));
     }
     

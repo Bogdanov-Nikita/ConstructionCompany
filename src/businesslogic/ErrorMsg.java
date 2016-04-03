@@ -10,8 +10,8 @@ package businesslogic;
  * @author Nik
  */
 public class ErrorMsg {
-    int code;
-    int other;
+    public int code;
+    public int other;
 
     public ErrorMsg(int code, int other) {
         this.code = code;

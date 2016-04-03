@@ -57,7 +57,7 @@ public class BehaviorModel {//Originator
     /**
      * TODO:требуется полная документация по аргументу Value для использоавния в модели поведения.
      * @param Event - код события, события указываются в Resources.R.ModelEvent
-     * @param Value - значение неких свединий передаваемых вместе с указанием события,
+     * @param Value - значение неких сведений передаваемых вместе с указанием события,
      * описание в документации.
     */
     public void executeEvent(int Event,ContentValues Value){

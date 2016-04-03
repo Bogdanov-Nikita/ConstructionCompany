@@ -14,13 +14,13 @@ import java.util.Date;
  */
 public class Manager extends Role{
     
-    public final static int ESTIMATE_SUCCESS = 0x1;
-    public final static int ESTIMATE_CLIENT_NEED_PAY = 0x2;                     //клиент должен оплатить приведущие задолженности.
-    public final static int ESTIMATE_ERROR_CAN_NOT_ADD = 0x3;                   //невозможно добавление возможно смета пуста
-    public final static int ESTIMATE_ERROR_CAN_NOT_SET_COAST = 0x4;               //Coast < 0
+    public final static int ESTIMATE_SUCCESS = 0x31;
+    public final static int ESTIMATE_CLIENT_NEED_PAY = 0x32;                    //клиент должен оплатить приведущие задолженности.
+    public final static int ESTIMATE_ERROR_CAN_NOT_ADD = 0x33;                  //невозможно добавление возможно смета пуста
+    public final static int ESTIMATE_ERROR_CAN_NOT_SET_COAST = 0x34;            //Coast < 0
     
-    public final static int STORAGE_NULL = 0x5;
-    public final static int WORKLIST_NULL = 0x6;
+    public final static int STORAGE_NULL = 0x35;
+    public final static int WORKLIST_NULL = 0x36;
     
     String CompanyAddress;
     
@@ -29,13 +29,14 @@ public class Manager extends Role{
         this.CompanyAddress = CompanyAddress;
     }
     
-    public Order CreateOrder(Date create,int Number,ArrayList<Work> WorkList){    
-        Order ord = null;
-        if(WorkList != null){
-            ord = new Order(create,Number);
+    public Order CreateOrder(Date create,int Number,ArrayList<Work> WorkList,int ClientId){    
+        Order ord = new Order(create,Number);
+        if(WorkList != null){    
             Estimate e = new Estimate(Estimate.MAIN, WorkList);
-            ord.addEstimapte(e);
+            ord.addEstimate(e);
         }
+        ord.setManagerID(Id);
+        ord.setClientID(ClientId);        
         return ord;
     }
     
@@ -51,7 +52,7 @@ public class Manager extends Role{
             case Estimate.ADDITIONAL:
                 //нужно оплатиить 85% или больше от текущей суммы заказа.
                 if(ord.getCurrentCoast() <= (ord.CoastCalculation() * 0.15)){
-                    if(ord.addEstimapte(part)){
+                    if(ord.addEstimate(part)){
                         ord.setStatus(Order.INPROGRESS);
                         flag = ESTIMATE_SUCCESS;
                     }else{
@@ -63,7 +64,7 @@ public class Manager extends Role{
                 }
                 break;
             case Estimate.MAIN:
-                if(ord.addEstimapte(part)){
+                if(ord.addEstimate(part)){
                     if(ord.setCurrentCoast(ord.CoastCalculation())){
                         ord.setStatus(Order.INPROGRESS);
                         flag = ESTIMATE_SUCCESS;
@@ -85,19 +86,18 @@ public class Manager extends Role{
         }
         //запрос ресурсов для работ.
         if(store != null){
-            if(WorkList != null){
+            if(WorkList != null && !WorkList.isEmpty()){
                 for (Work WorkList1 : WorkList) {
-                    ArrayList<Resource> res = WorkList1.getResources();
-                    for (Resource re : res) {
-                        int index = store.findResoursePositionByType(re.getType());
+                    for (Resource resource1 : WorkList1.getResources()) {
+                        int index = store.findResoursePositionByType(resource1.getType());
                         if (index != -1) {
-                            switch (store.TakeResources(index, re.getAmount())) {
+                            switch (store.TakeResources(index, resource1.getAmount())) {
                                 case Storage.TAKE_RESORSE_SUCCESS:
                                     //успешное выполнение
                                     break;
                                 case Storage.INSUFFICIENTLY_RESORSE:
                                     //данного товара недостаточно
-                                    int NeedAmount = re.getAmount() - store.getResource(index).getAmount();
+                                    int NeedAmount = resource1.getAmount() - store.getResource(index).getAmount();
                                     ProcurementList.add(new Resource(NeedAmount,
                                             store.getResource(index).getType(),
                                             store.getResource(index).getCoast(),
@@ -105,11 +105,11 @@ public class Manager extends Role{
                                     break;
                                 case Storage.RESORSE_EMPTY:
                                     //на склад данного ресурса не осталось
-                                    ProcurementList.add(re);
+                                    ProcurementList.add(resource1);
                                     break;
                                 case Storage.RESORSE_NOT_FOUND:
                                     //на складе такой тип ресурс не найден
-                                    ErrorList.add(new ErrorMsg(Storage.RESORSE_NOT_FOUND, re.getType()));
+                                    ErrorList.add(new ErrorMsg(Storage.RESORSE_NOT_FOUND, resource1.getType()));
                                     break;
                                 case Storage.STORAGE_EMPTY:
                                     //проблема с инициализацией склада
@@ -121,12 +121,12 @@ public class Manager extends Role{
                         }
                     }
                 }
-                if(!ProcurementList.isEmpty()){
+                /*if(!ProcurementList.isEmpty()){//Это действие (должно)может быть выполненно отдельно
                     int flag = SendResourseToStorage(store,ProcurementList);
                     if(flag != Storage.SEND_RESORSE_SUCCESS){
                         ErrorList.add(new ErrorMsg(flag, -1));
                     }
-                }
+                }*/
             }else{
                 ErrorList.add(new ErrorMsg(WORKLIST_NULL, -1));
             }
@@ -142,20 +142,28 @@ public class Manager extends Role{
     public int SendResourseToStorage(Storage store,ArrayList<Resource> ResList){
         //отправка ресурсов на склад.
         int Flag;
-        for (Resource ResList1 : ResList) {
-            Flag = store.SendResources(ResList1.getType(), ResList1.getAmount());
-            if (Flag != Storage.SEND_RESORSE_SUCCESS) {
-                return Flag;
+        if(store != null){
+            for (Resource ResList1 : ResList) {
+                Flag = store.SendResources(ResList1.getType(), ResList1.getAmount());
+                if (Flag != Storage.SEND_RESORSE_SUCCESS) {
+                    return Flag;
+                }
             }
+        }else{
+            return STORAGE_NULL;
         }
         return Storage.SEND_RESORSE_SUCCESS;
     }
     
     public boolean CloseOrder(boolean ClientAceptWork,Order ord,Date End){
-        if(ord.getStatus()== Order.WAITING_ACKNOWLEDGMENT_PAY){
-            if(ord.getCurrentCoast() == 0){
-                ord.setStatus(Order.CLOSE);
-                return ord.CloseEstimate(End);
+        if(ClientAceptWork == true){
+            if(ord.getStatus()== Order.WAITING_ACKNOWLEDGMENT_PAY){
+                if(ord.getCurrentCoast() == 0){
+                    ord.setStatus(Order.CLOSE);
+                    return ord.CloseOrder(End);
+                }else{
+                    return false;
+                }
             }else{
                 return false;
             }

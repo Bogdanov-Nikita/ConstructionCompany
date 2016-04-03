@@ -47,6 +47,10 @@ public class Client extends Role{
         return Addres;
     }
 
+    public void setType(int type) {
+        this.type = type;
+    }
+
     public int getType() {
         return type;
     }
