@@ -22,7 +22,6 @@ public class ResourceMapper extends Mapper<Resource, DatabaseManager>{
             Databse.Resource.id,
             Databse.Resource.type,
             Databse.Resource.name,
-            Databse.Resource.amount,
             Databse.Resource.coast
         };        
         ResultSet rs = db.executeQuery(
@@ -44,7 +43,6 @@ public class ResourceMapper extends Mapper<Resource, DatabaseManager>{
                     Databse.Resource.id,
                     Databse.Resource.type,
                     Databse.Resource.name,
-                    Databse.Resource.amount,
                     Databse.Resource.coast
                 };        
                 ResultSet rs = db.executeQuery(

@@ -22,11 +22,11 @@ public class Manager extends Role{
     public final static int STORAGE_NULL = 0x35;
     public final static int WORKLIST_NULL = 0x36;
     
-    String CompanyAddress;
+    String OfficeAddress;
     
-    public Manager(String CompanyAddress, int Id, String Name, String PhoneNumber) {
+    public Manager(String OfficeAddress, int Id, String Name, String PhoneNumber) {
         super(Id, Name, PhoneNumber);
-        this.CompanyAddress = CompanyAddress;
+        this.OfficeAddress = OfficeAddress;
     }
     
     public Order CreateOrder(Date create,int Number,ArrayList<Work> WorkList,int ClientId){    
@@ -172,12 +172,12 @@ public class Manager extends Role{
         }
     }
     
-    public void setCompanyAddress(String CompanyAddress) {
-        this.CompanyAddress = CompanyAddress;
+    public void setOfficeAddress(String OfficeAddress) {
+        this.OfficeAddress = OfficeAddress;
     }
 
-    public String getCompanyAddress() {
-        return CompanyAddress;
+    public String getOfficeAddress() {
+        return OfficeAddress;
     }
     
 }

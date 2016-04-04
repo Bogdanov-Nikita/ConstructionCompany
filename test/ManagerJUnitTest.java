@@ -49,9 +49,9 @@ public class ManagerJUnitTest {
     @Test
     public void test1() {        
         Manager m = new Manager("Company", 1234, "name", "12345");
-        assertEquals("Company",m.getCompanyAddress());
-        m.setCompanyAddress("co1");
-        assertEquals("co1",m.getCompanyAddress());
+        assertEquals("Company",m.getOfficeAddress());
+        m.setOfficeAddress("co1");
+        assertEquals("co1",m.getOfficeAddress());
         assertNotNull(m.CreateOrder(new Date(), 1234, null,125));
         ArrayList<Work> WorkList = new ArrayList<>();
         ArrayList<Resource> Res = new ArrayList<>();
@@ -79,9 +79,9 @@ public class ManagerJUnitTest {
     @Test
     public void test2() {
         Manager m = new Manager("Company", 1234, "name", "12345");
-        assertEquals("Company",m.getCompanyAddress());
-        m.setCompanyAddress("co1");
-        assertEquals("co1",m.getCompanyAddress());
+        assertEquals("Company",m.getOfficeAddress());
+        m.setOfficeAddress("co1");
+        assertEquals("co1",m.getOfficeAddress());
         assertNotNull(m.CreateOrder(new Date(), 1234, null,125));
         ArrayList<Work> WorkList = new ArrayList<>();
         ArrayList<Resource> Res = new ArrayList<>();

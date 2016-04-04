@@ -43,3 +43,6 @@
 
 ###диаграмма последовательностей
 ![sequence-diagram](/getimage.png)
+
+###диаграмма базы данных
+![database-diagram](/database.png)
