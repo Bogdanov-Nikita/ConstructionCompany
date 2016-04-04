@@ -36,10 +36,10 @@
     * по безналичному расчёту.
 
 ###use-case диаграмма.
-![use-case](/uml use case.png)
+![use-case](/uml_use_case.png)
 
 ###uml диаграмма.
-![uml-diagram](/uml class diagram.png)
+![uml-diagram](/uml_class_diagram.png)
 
 ###диаграмма последовательностей
 ![sequence-diagram](/getimage.png)
