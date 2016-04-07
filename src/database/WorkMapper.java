@@ -26,12 +26,12 @@ public class WorkMapper extends Mapper<Work, DatabaseManager>{
     }
 
     @Override
-    public boolean save(Work res) throws SQLException {
+    public boolean save(Work e, DatabaseManager db) throws SQLException {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public boolean saveArray(ArrayList<Work> list) throws SQLException {
+    public boolean saveArray(ArrayList<Work> list, DatabaseManager db) throws SQLException {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
     

@@ -18,6 +18,6 @@ import java.util.ArrayList;
 public abstract class Mapper<Domain,DatabaseHelper>{
     public abstract Domain load(int Id,DatabaseHelper db)throws SQLException;
     public abstract ArrayList<Domain> loadList(DatabaseHelper db)throws SQLException;    
-    public abstract boolean save(Domain res)throws SQLException;
-    public abstract boolean saveArray(ArrayList<Domain> list)throws SQLException;
+    public abstract boolean save(Domain e, DatabaseHelper db)throws SQLException;
+    public abstract boolean saveArray(ArrayList<Domain> list, DatabaseHelper db)throws SQLException;
 }

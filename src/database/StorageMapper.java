@@ -26,12 +26,12 @@ public class StorageMapper extends Mapper<Storage, DatabaseManager>{
     }
 
     @Override
-    public boolean save(Storage res) throws SQLException {
+    public boolean save(Storage e, DatabaseManager db) throws SQLException {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public boolean saveArray(ArrayList<Storage> list) throws SQLException {
+    public boolean saveArray(ArrayList<Storage> list, DatabaseManager db) throws SQLException {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
     

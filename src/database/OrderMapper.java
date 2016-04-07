@@ -26,12 +26,12 @@ public class OrderMapper extends Mapper<Order, DatabaseManager>{
     }
 
     @Override
-    public boolean save(Order res) throws SQLException {
+    public boolean save(Order e, DatabaseManager db) throws SQLException {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public boolean saveArray(ArrayList<Order> list) throws SQLException {
+    public boolean saveArray(ArrayList<Order> list, DatabaseManager db) throws SQLException {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
     

@@ -18,6 +18,7 @@ public class ResourceMapper extends Mapper<Resource, DatabaseManager>{
     
     @Override
     public Resource load(int Id,DatabaseManager db) throws SQLException{
+        db.startTransaction();
         String columns[] = {
             Databse.Resource.id,
             Databse.Resource.type,
@@ -34,11 +35,13 @@ public class ResourceMapper extends Mapper<Resource, DatabaseManager>{
                 Databse.Resource.id)
         );
         rs.next();
+        db.commitTransaction();
         return new Resource(rs.getInt(1), rs.getInt(2), rs.getDouble(3), rs.getString(4));
     }
     
     @Override
     public ArrayList<Resource> loadList(DatabaseManager db) throws SQLException{
+        db.startTransaction();
         String columns[] = {
                     Databse.Resource.id,
                     Databse.Resource.type,
@@ -58,16 +61,17 @@ public class ResourceMapper extends Mapper<Resource, DatabaseManager>{
                 while(rs.next()){ 
                     list.add(new Resource(rs.getInt(1), rs.getInt(2), rs.getDouble(3), rs.getString(4)));
                 }
+                db.commitTransaction();
                 return list;
     }
     
     @Override
-    public boolean save(Resource res){
+    public boolean save(Resource e, DatabaseManager db){
        return false; 
     }
     
     @Override
-    public boolean saveArray(ArrayList<Resource> list){
+    public boolean saveArray(ArrayList<Resource> list, DatabaseManager db){
         return false;
     }
     

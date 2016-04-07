@@ -26,12 +26,12 @@ public class ManagerMapper extends Mapper <Manager, DatabaseManager>{
     }
 
     @Override
-    public boolean save(Manager res) throws SQLException {
+    public boolean save(Manager e, DatabaseManager db) throws SQLException {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public boolean saveArray(ArrayList<Manager> list) throws SQLException {
+    public boolean saveArray(ArrayList<Manager> list, DatabaseManager db) throws SQLException {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
     
