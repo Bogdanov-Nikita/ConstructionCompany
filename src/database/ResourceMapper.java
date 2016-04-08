@@ -20,19 +20,19 @@ public class ResourceMapper extends Mapper<Resource, DatabaseManager>{
     public Resource load(int Id,DatabaseManager db) throws SQLException{
         db.startTransaction();
         String columns[] = {
-            Databse.Resource.id,
-            Databse.Resource.type,
-            Databse.Resource.name,
-            Databse.Resource.coast
+            Database.Resource.id,
+            Database.Resource.type,
+            Database.Resource.name,
+            Database.Resource.coast
         };        
         ResultSet rs = db.executeQuery(
                 QueryBilder.select(
-                Databse.Resource.Table,
+                Database.Resource.Table,
                 columns,
-                Databse.Resource.id+"=?",
+                Database.Resource.id+"=?",
                 new String[]{String.valueOf(Id)},
                 null,
-                Databse.Resource.id)
+                Database.Resource.id)
         );
         rs.next();
         db.commitTransaction();
@@ -43,26 +43,26 @@ public class ResourceMapper extends Mapper<Resource, DatabaseManager>{
     public ArrayList<Resource> loadList(DatabaseManager db) throws SQLException{
         db.startTransaction();
         String columns[] = {
-                    Databse.Resource.id,
-                    Databse.Resource.type,
-                    Databse.Resource.name,
-                    Databse.Resource.coast
-                };        
-                ResultSet rs = db.executeQuery(
-                        QueryBilder.select(
-                        Databse.Resource.Table,
-                        columns,
-                        null,
-                        null,
-                        null,
-                        Databse.Resource.id)
-                );
-                ArrayList<Resource> list = new ArrayList<>();
-                while(rs.next()){ 
-                    list.add(new Resource(rs.getInt(1), rs.getInt(2), rs.getDouble(3), rs.getString(4)));
-                }
-                db.commitTransaction();
-                return list;
+            Database.Resource.id,
+            Database.Resource.type,
+            Database.Resource.name,
+            Database.Resource.coast
+        };        
+        ResultSet rs = db.executeQuery(
+                QueryBilder.select(
+                Database.Resource.Table,
+                columns,
+                null,
+                null,
+                null,
+                Database.Resource.id)
+        );
+        db.commitTransaction();
+        ArrayList<Resource> list = new ArrayList<>();
+        while(rs.next()){ 
+            list.add(new Resource(rs.getInt(1), rs.getInt(2), rs.getDouble(3), rs.getString(4)));
+        }                
+        return list;
     }
     
     @Override
