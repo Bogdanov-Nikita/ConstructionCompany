@@ -42,10 +42,10 @@ public class StorageJUnitTest {
     @Test
     public void test1() {
         ArrayList<Resource> Res = new ArrayList<>();
-        Res.add(new Resource(100, 1, 0.5, "res1"));
-        Res.add(new Resource(200, 2, 0.7, "res2"));
-        Res.add(new Resource(300, 3, 1.6, "res3"));
-        Res.add(new Resource(400, 4, 1.2, "res4"));
+        Res.add(new Resource(0,100, 1, 0.5, "res1"));
+        Res.add(new Resource(1,200, 2, 0.7, "res2"));
+        Res.add(new Resource(2,300, 3, 1.6, "res3"));
+        Res.add(new Resource(3,400, 4, 1.2, "res4"));
         Storage store = new Storage(1, "location",null);
         assertEquals(1, store.getId());
         assertEquals("location", store.getLocation());
@@ -60,16 +60,16 @@ public class StorageJUnitTest {
     @Test
     public void test2() {
         ArrayList<Resource> Res = new ArrayList<>();
-        Res.add(new Resource(100, 1, 0.5, "res1"));
-        Res.add(new Resource(200, 2, 0.7, "res2"));
-        Res.add(new Resource(300, 3, 1.6, "res3"));
-        Res.add(new Resource(400, 4, 1.2, "res4"));
+        Res.add(new Resource(0,100, 1, 0.5, "res1"));
+        Res.add(new Resource(1,200, 2, 0.7, "res2"));
+        Res.add(new Resource(2,300, 3, 1.6, "res3"));
+        Res.add(new Resource(3,400, 4, 1.2, "res4"));
         Storage store = new Storage(1, "location",Res);
         assertNotNull(store.getResource(0));
         assertEquals(Storage.SEND_RESORSE_SUCCESS, store.SendResources(1, 1000));
         assertFalse(store.isEmpty());
         assertEquals(Storage.TAKE_RESORSE_SUCCESS, store.TakeResources(0, 1100));
-        store.addResource(new Resource(100, 1, 0.5, "res1"));
+        store.addResource(new Resource(4,100, 1, 0.5, "res1"));
         assertEquals(Storage.RESORSE_EMPTY, store.TakeResources(0, 1100));
         assertEquals(Storage.INSUFFICIENTLY_RESORSE, store.TakeResources(1, 1100));
         assertEquals(Storage.RESORSE_NOT_FOUND, store.TakeResources(7, 1100));
@@ -79,10 +79,10 @@ public class StorageJUnitTest {
     @Test
     public void test3() {
         ArrayList<Resource> Res = new ArrayList<>();
-        Res.add(new Resource(100, 1, 0.5, "res1"));
-        Res.add(new Resource(200, 2, 0.7, "res2"));
-        Res.add(new Resource(300, 3, 1.6, "res3"));
-        Res.add(new Resource(400, 4, 1.2, "res4"));
+        Res.add(new Resource(1,100, 1, 0.5, "res1"));
+        Res.add(new Resource(2,200, 2, 0.7, "res2"));
+        Res.add(new Resource(3,300, 3, 1.6, "res3"));
+        Res.add(new Resource(4,400, 4, 1.2, "res4"));
         Storage store = new Storage(1, "location",null);
         assertNull(store.getResource(0));
         assertEquals(Storage.STORAGE_RESOURSE_FAIL, store.SendResources(1, 1000));
@@ -95,10 +95,10 @@ public class StorageJUnitTest {
     @Test
     public void test4() {
         ArrayList<Resource> Res = new ArrayList<>();
-        Res.add(new Resource(100, 1, 0.5, "res1"));
-        Res.add(new Resource(200, 2, 0.7, "res2"));
-        Res.add(new Resource(300, 3, 1.6, "res3"));
-        Res.add(new Resource(400, 4, 1.2, "res4"));        
+        Res.add(new Resource(4,100, 1, 0.5, "res1"));
+        Res.add(new Resource(5,200, 2, 0.7, "res2"));
+        Res.add(new Resource(8,300, 3, 1.6, "res3"));
+        Res.add(new Resource(7,400, 4, 1.2, "res4"));        
         Storage store = new Storage(1, "location",Res);
         assertEquals(Storage.ADD_RESOURSE_FAIL, store.SendResources(1, -1000));
     }

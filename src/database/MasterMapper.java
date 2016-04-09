@@ -35,6 +35,7 @@ public class MasterMapper extends Mapper<Master, DatabaseManager>{
                 )
         );
         db.commitTransaction();
+        rs.next();
         return new Master(rs.getInt(1), rs.getString(2), rs.getString(3));
     }
 

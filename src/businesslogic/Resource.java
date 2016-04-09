@@ -22,12 +22,18 @@ public class Resource {
     /**
      * Создание ресурса
      * Тип ресурса и Название связанны и имеют прямое соответствие.
+     * @param Id - Идентификатор 0 если ещё не известен
      * @param Amount - Колиество данного ресурса.
      * @param Type - Тип ресурса.
      * @param Сoast - Цена ресурса. 
      * @param Name - Название ресурса.
      */
-    public Resource(int Amount, int Type,double Сoast,String Name) {
+    public Resource(int Id,int Amount, int Type,double Сoast,String Name) {
+        if(Id < 0){
+            this.Id = 0;
+        }else{
+            this.Id = Id;
+        }
         if(Amount < 0){
             this.Amount = 0;
         }else{
@@ -101,6 +107,14 @@ public class Resource {
             this.Type = Type; 
             return true;
         }
+    }
+
+    public void setId(int Id) {
+        this.Id = Id;
+    }
+
+    public int getId() {
+        return Id;
     }
     
 }

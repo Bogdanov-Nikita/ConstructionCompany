@@ -55,9 +55,9 @@ public class ManagerJUnitTest {
         assertNotNull(m.CreateOrder(new Date(), 1234, null,125));
         ArrayList<Work> WorkList = new ArrayList<>();
         ArrayList<Resource> Res = new ArrayList<>();
-        Res.add(new Resource(100, 1, 0.1, "discr1"));
-        Res.add(new Resource(200, 3, 0.5, "discr2"));
-        Res.add(new Resource(300, 4, 0.6, "discr3"));
+        Res.add(new Resource(0,100, 1, 0.1, "discr1"));
+        Res.add(new Resource(0,200, 3, 0.5, "discr2"));
+        Res.add(new Resource(0,300, 4, 0.6, "discr3"));
         WorkList.add(new Work(Res, 100, "des"));
         WorkList.add(new Work(Res, 500, "des2"));
         Order ord = m.CreateOrder(new Date(), 1234, WorkList,125);
@@ -85,9 +85,9 @@ public class ManagerJUnitTest {
         assertNotNull(m.CreateOrder(new Date(), 1234, null,125));
         ArrayList<Work> WorkList = new ArrayList<>();
         ArrayList<Resource> Res = new ArrayList<>();
-        Res.add(new Resource(100, 1, 0.1, "discr1"));
-        Res.add(new Resource(200, 3, 0.5, "discr2"));
-        Res.add(new Resource(300, 4, 0.6, "discr3"));
+        Res.add(new Resource(0,100, 1, 0.1, "discr1"));
+        Res.add(new Resource(0,200, 3, 0.5, "discr2"));
+        Res.add(new Resource(0,300, 4, 0.6, "discr3"));
         WorkList.add(new Work(Res, 100, "des"));
         WorkList.add(new Work(Res, 500, "des2"));
         Estimate e = new Estimate(Estimate.MAIN, WorkList);
@@ -135,15 +135,15 @@ public class ManagerJUnitTest {
     @Test
     public void test4(){      
         Storage store = new Storage(5, "location", new ArrayList<>());
-        store.addResource(new Resource(100, 1, 0.1, "discr1"));
-        store.addResource(new Resource(200, 3, 0.5, "discr2"));
-        store.addResource(new Resource(300, 4, 0.6, "discr3"));        
+        store.addResource(new Resource(0,100, 1, 0.1, "discr1"));
+        store.addResource(new Resource(0,200, 3, 0.5, "discr2"));
+        store.addResource(new Resource(0,300, 4, 0.6, "discr3"));        
         Manager m = new Manager("Company", 1234, "name", "12345");
         ArrayList<Work> WorkList = new ArrayList<>();
         ArrayList<Resource> Res = new ArrayList<>();
-        Res.add(new Resource(200, 1, 0.1, "discr1"));
-        Res.add(new Resource(200, 3, 0.5, "discr2"));
-        Res.add(new Resource(300, 4, 0.6, "discr3"));
+        Res.add(new Resource(0,200, 1, 0.1, "discr1"));
+        Res.add(new Resource(0,200, 3, 0.5, "discr2"));
+        Res.add(new Resource(0,300, 4, 0.6, "discr3"));
         WorkList.add(new Work(Res, 100, "des"));
         WorkList.add(new Work(Res, 500, "des2"));
         Order ord = m.CreateOrder(new Date(), 123, WorkList, 1234);
@@ -159,16 +159,16 @@ public class ManagerJUnitTest {
     @Test
     public void test5(){        
         Storage store = new Storage(5, "location", new ArrayList<>());
-        store.addResource(new Resource(100, 1, 0.1, "discr1"));
-        store.addResource(new Resource(200, 3, 0.5, "discr2"));
-        store.addResource(new Resource(300, 4, 0.6, "discr3"));        
+        store.addResource(new Resource(0,100, 1, 0.1, "discr1"));
+        store.addResource(new Resource(0,200, 3, 0.5, "discr2"));
+        store.addResource(new Resource(0,300, 4, 0.6, "discr3"));        
         Manager m = new Manager("Company", 1234, "name", "12345");
         ArrayList<Work> WorkList = new ArrayList<>();
         ArrayList<Resource> Res = new ArrayList<>();
-        Res.add(new Resource(200, 1, 0.1, "discr1"));
-        Res.add(new Resource(200, 3, 0.5, "discr2"));
-        Res.add(new Resource(300, 4, 0.6, "discr3"));
-        Res.add(new Resource(400, 5, 0.6, "discr3"));
+        Res.add(new Resource(0,200, 1, 0.1, "discr1"));
+        Res.add(new Resource(0,200, 3, 0.5, "discr2"));
+        Res.add(new Resource(0,300, 4, 0.6, "discr3"));
+        Res.add(new Resource(0,400, 5, 0.6, "discr3"));
         WorkList.add(new Work(Res, 100, "des"));
         WorkList.add(new Work(Res, 500, "des2"));
         Order ord = m.CreateOrder(new Date(), 123, WorkList, 1234);
@@ -205,10 +205,10 @@ public class ManagerJUnitTest {
         Manager m = new Manager("Company", 1234, "name", "12345");
         ArrayList<Work> WorkList = new ArrayList<>();
         ArrayList<Resource> Res = new ArrayList<>();
-        Res.add(new Resource(200, 1, 0.1, "discr1"));
-        Res.add(new Resource(200, 3, 0.5, "discr2"));
-        Res.add(new Resource(300, 4, 0.6, "discr3"));
-        Res.add(new Resource(400, 5, 0.6, "discr3"));
+        Res.add(new Resource(0,200, 1, 0.1, "discr1"));
+        Res.add(new Resource(0,200, 3, 0.5, "discr2"));
+        Res.add(new Resource(0,300, 4, 0.6, "discr3"));
+        Res.add(new Resource(0,400, 5, 0.6, "discr3"));
         WorkList.add(new Work(Res, 100, "des"));
         WorkList.add(new Work(Res, 500, "des2"));        
         Order ord = m.CreateOrder(new Date(), 123, WorkList, 1234);
@@ -221,7 +221,7 @@ public class ManagerJUnitTest {
         assertEquals(er.get(1).code,Storage.RESORSE_NOT_FOUND);
         assertEquals(er.get(1).other,3);
         assertEquals(Manager.STORAGE_NULL,m.SendResourseToStorage(null, prolist));
-        prolist.add(new Resource(200,1,0.5,""));
+        prolist.add(new Resource(0,200,1,0.5,""));
         when(store.SendResources(1,200)).thenReturn(Storage.STORAGE_RESOURSE_FAIL);
         assertEquals(Storage.STORAGE_RESOURSE_FAIL,m.SendResourseToStorage(store, prolist));
         assertFalse(m.TakeResourseFromStorage(store,null,prolist).isEmpty());

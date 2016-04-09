@@ -36,6 +36,7 @@ public class ManagerMapper extends Mapper <Manager, DatabaseManager>{
                 )
         );
         db.commitTransaction();
+        rs.next();
         return new Manager(rs.getString(4), rs.getInt(1), rs.getString(2), rs.getString(3));
     }
 

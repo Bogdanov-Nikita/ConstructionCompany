@@ -36,7 +36,7 @@ public class ResourceMapper extends Mapper<Resource, DatabaseManager>{
         );
         rs.next();
         db.commitTransaction();
-        return new Resource(rs.getInt(1), rs.getInt(2), rs.getDouble(3), rs.getString(4));
+        return new Resource(rs.getInt(1),0, rs.getInt(2), rs.getDouble(3), rs.getString(4));
     }
     
     @Override
@@ -60,13 +60,14 @@ public class ResourceMapper extends Mapper<Resource, DatabaseManager>{
         db.commitTransaction();
         ArrayList<Resource> list = new ArrayList<>();
         while(rs.next()){ 
-            list.add(new Resource(rs.getInt(1), rs.getInt(2), rs.getDouble(3), rs.getString(4)));
+            list.add(new Resource(rs.getInt(1),0, rs.getInt(2), rs.getDouble(3), rs.getString(4)));
         }                
         return list;
     }
     
     @Override
     public boolean save(Resource e, DatabaseManager db){
+        
        return false; 
     }
     

@@ -39,7 +39,8 @@ public class ResourceJUnitTest {
 
     @Test
     public void test1() {
-        Resource res = new Resource(-10,-10, -100,null);
+        Resource res = new Resource(-10,-10,-10, -100,null);
+        assertEquals("Id",0, res.getId(),0);
         assertEquals("Amount",0,res.getAmount());
         assertEquals("Type",0,res.getType());
         assertEquals("Coast",0, res.getCoast(),0);
@@ -47,7 +48,8 @@ public class ResourceJUnitTest {
     
     @Test
     public void test2() {
-        Resource res = new Resource(-1,100,10,null);
+        Resource res = new Resource(100,-1,100,10,null);
+        assertEquals("Id",100, res.getId(),0);
         assertEquals("Amount",0,res.getAmount());
         assertEquals("Type",100,res.getType());
         assertEquals("Coast",10, res.getCoast(),0);
@@ -55,7 +57,7 @@ public class ResourceJUnitTest {
     
     @Test
     public void test3(){
-        Resource res = new Resource(-1,100,10,null);
+        Resource res = new Resource(-1,-1,100,10,null);
         assertEquals("Amount",0,res.getAmount());
         assertEquals(false,res.setAmount(-100));
         assertEquals("Amount",0,res.getAmount());
@@ -65,7 +67,7 @@ public class ResourceJUnitTest {
     
     @Test
     public void test4(){
-        Resource res = new Resource(-1,100,-100,null);
+        Resource res = new Resource(0,-1,100,-100,null);
         assertEquals("Coast",0, res.getCoast(),0);
         assertEquals(false,res.setCoast(-100));
         assertEquals("Coast",0, res.getCoast(),0);
@@ -75,7 +77,7 @@ public class ResourceJUnitTest {
     
     @Test
     public void test5(){
-        Resource res = new Resource(1,100,100,null);
+        Resource res = new Resource(0,1,100,100,null);
         assertEquals("Type",100,res.getType());
         assertEquals(false,res.setType(-100));
         assertEquals("Type",0,res.getType());
@@ -85,9 +87,11 @@ public class ResourceJUnitTest {
     
     @Test
     public void test6(){
-        Resource res = new Resource(1,100,100,"Name");
+        Resource res = new Resource(5,1,100,100,"Name");
         assertEquals("Name",res.getName());
         res.setName("Test1");
         assertEquals("Test1",res.getName());
+        res.setId(8);
+        assertEquals(8,res.getId(),0);
     }
 }

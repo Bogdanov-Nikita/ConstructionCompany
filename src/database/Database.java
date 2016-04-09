@@ -60,7 +60,7 @@ public  final class Database {
     public final static class Estimate{
         public final static String Table = "Estimate";
         public final static String id = "id";//PK
-        public final static String order_id = "oder_id";
+        public final static String order_id = "order_id";
         public final static String type = "type";//INT
         public final static String coast = "coast";//double >= 0
         public final static String paid = "paid";//boolean
@@ -99,5 +99,5 @@ public  final class Database {
         public final static String name = "name";//char
         public final static String phone_number = "phone_number";//char
     }
-    
+    public final static String StorageView = "StorageView";
 }

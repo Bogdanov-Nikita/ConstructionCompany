@@ -30,13 +30,14 @@ public class ClientMapper extends Mapper<Client, DatabaseManager>{
                 QueryBilder.select(
                         Database.Client.Table,
                         columns,
-                        Database.Client.id + "=?",
+                        "\"" + Database.Client.id + "\"=?",
                         new String[]{String.valueOf(Id)},
                         null,
                         Database.Client.id)
         );
-        db.commitTransaction();
-        return new Client(rs.getInt(4), rs.getString(5), rs.getInt(1), rs.getString(2), rs.getString(3));       
+        rs.next();
+        db.commitTransaction();        
+        return new Client(rs.getInt(4), rs.getString(5).trim(), rs.getInt(1), rs.getString(2).trim(), rs.getString(3).trim());       
     }
 
     @Override
@@ -57,12 +58,12 @@ public class ClientMapper extends Mapper<Client, DatabaseManager>{
                         null,
                         null,
                         Database.Client.id)
-        );
-        db.commitTransaction();
+        );        
         ArrayList<Client> list = new ArrayList<>();
         while(rs.next()){ 
-            list.add(new Client(rs.getInt(4), rs.getString(5), rs.getInt(1), rs.getString(2), rs.getString(3)));
+            list.add(new Client(rs.getInt(4), rs.getString(5).trim(), rs.getInt(1), rs.getString(2).trim(), rs.getString(3).trim()));
         }
+        db.commitTransaction();
         return list;
     }
 
@@ -71,10 +72,10 @@ public class ClientMapper extends Mapper<Client, DatabaseManager>{
         boolean flag;
         db.startTransaction();
         ContentValues value = new ContentValues();
-        value.put(Database.Client.name, e.getName());
-        value.put(Database.Client.phone_number,e.getPhoneNumber());
-        value.put(Database.Client.type,String.valueOf(e.getType()));
-        value.put(Database.Client.addres,e.getAddres());        
+        value.put(Database.Client.Table + "\".\"" + Database.Client.name,e.getName());
+        value.put(Database.Client.Table + "\".\"" + Database.Client.phone_number,e.getPhoneNumber());
+        value.put(Database.Client.Table + "\".\"" + Database.Client.type,String.valueOf(e.getType()));
+        value.put(Database.Client.Table + "\".\"" + Database.Client.addres,e.getAddres());        
         if(e.getID()==0||e.getID()==-1){
             //insert
             value.put(Database.Client.id, "null");            
@@ -82,9 +83,11 @@ public class ClientMapper extends Mapper<Client, DatabaseManager>{
         }else{
             //update
             value.put(Database.Client.id, String.valueOf(e.getID()));
-            String whereClause = Database.Client.Table + "." + Database.Client.id +"=?";
+            String whereClause ="\"" + Database.Client.Table + "\".\"" + Database.Client.id +"\"=?";
             String args[] = {String.valueOf(e.getID())};
-            flag = db.execute(QueryBilder.update(Database.Client.Table, value, whereClause, args));            
+            String SQL = QueryBilder.update(Database.Client.Table, value, whereClause, args);
+            System.out.println(SQL);
+            flag = db.execute(SQL);            
         }
         db.commitTransaction();
         return flag;

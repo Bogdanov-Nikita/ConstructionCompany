@@ -43,9 +43,9 @@ public class EstimateJUnitTest {
     @Test
     public void test1() {
         ArrayList<Resource> Res = new ArrayList<>();
-        Res.add(new Resource(100, 1, 0.1, "discr1"));
-        Res.add(new Resource(200, 3, 0.5, "discr2"));
-        Res.add(new Resource(300, 4, 0.6, "discr3"));
+        Res.add(new Resource(0,100, 1, 0.1, "discr1"));
+        Res.add(new Resource(0,200, 3, 0.5, "discr2"));
+        Res.add(new Resource(0,300, 4, 0.6, "discr3"));
         ArrayList<Work> WL = new ArrayList<>();
         WL.add(new Work(Res, 100, "des"));
         WL.add(new Work(Res, 500, "des2"));
@@ -69,9 +69,9 @@ public class EstimateJUnitTest {
     @Test
     public void test2() {
         ArrayList<Resource> Res = new ArrayList<>();
-        Res.add(new Resource(100, 1, 0.1, "discr1"));
-        Res.add(new Resource(200, 3, 0.5, "discr2"));
-        Res.add(new Resource(300, 4, 0.6, "discr3"));
+        Res.add(new Resource(0,100, 1, 0.1, "discr1"));
+        Res.add(new Resource(0,200, 3, 0.5, "discr2"));
+        Res.add(new Resource(0,300, 4, 0.6, "discr3"));
         Estimate e = new Estimate(Estimate.MAIN, null);
         assertEquals(0,e.CoastCalculation(),0);
         e.setWorkList(new ArrayList<>());
@@ -89,9 +89,9 @@ public class EstimateJUnitTest {
     @Test
     public void test3() {
         ArrayList<Resource> Res = new ArrayList<>();
-        Res.add(new Resource(100, 1, 0.1, "discr1"));
-        Res.add(new Resource(200, 3, 0.5, "discr2"));
-        Res.add(new Resource(300, 4, 0.6, "discr3"));
+        Res.add(new Resource(0,100, 1, 0.1, "discr1"));
+        Res.add(new Resource(0,200, 3, 0.5, "discr2"));
+        Res.add(new Resource(0,300, 4, 0.6, "discr3"));
         ArrayList<Work> WL = new ArrayList<>();
         WL.add(new Work(Res, 100, "des"));
         WL.add(new Work(Res, 500, "des2"));

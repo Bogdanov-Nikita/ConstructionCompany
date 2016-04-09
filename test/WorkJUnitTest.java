@@ -43,7 +43,7 @@ public class WorkJUnitTest {
     public void test1() {
         Work w = new Work(null, -10, null);
         assertNull(w.getResources());
-        w.add(new Resource(1, 1, 1, "discr"));
+        w.add(new Resource(1,1, 1, 1, "discr"));
         assertNotNull(w.getResources());
     }
     @Test
@@ -62,13 +62,13 @@ public class WorkJUnitTest {
     @Test
     public void test3() {
         ArrayList<Resource> Res = new ArrayList<>();
-        Res.add(new Resource(100, 1, 0.1, "discr1"));
-        Res.add(new Resource(200, 3, 0.5, "discr2"));
-        Res.add(new Resource(300, 4, 0.6, "discr3"));
+        Res.add(new Resource(1,100, 1, 0.1, "discr1"));
+        Res.add(new Resource(2,200, 3, 0.5, "discr2"));
+        Res.add(new Resource(3,300, 4, 0.6, "discr3"));
         Work w = new Work(Res, 100, "des");
         w.add(null);
         w.set(1, null);
-        w.set(1, new Resource(400, 8, 1.7, "discr4"));
+        w.set(1, new Resource(4,400, 8, 1.7, "discr4"));
         assertTrue(970 == w.CoastCalculation());
         w.delete(0);
         w.delete(0);
@@ -81,24 +81,24 @@ public class WorkJUnitTest {
     @Test
     public void test4() {
         ArrayList<Resource> Res = new ArrayList<>();
-        Res.add(new Resource(100, 1, 0.1, "discr1"));
-        Res.add(new Resource(200, 3, 0.5, "discr2"));
-        Res.add(new Resource(300, 4, 0.6, "discr3"));
+        Res.add(new Resource(1,100, 1, 0.1, "discr1"));
+        Res.add(new Resource(2,200, 3, 0.5, "discr2"));
+        Res.add(new Resource(3,300, 4, 0.6, "discr3"));
         Work w = new Work(null, 100, "des");
         assertTrue(100 == w.CoastCalculation());
         assertTrue(0 == w.amountResources(1));
-        w.add(new Resource(100, 1, 0.1, "discr1"));
+        w.add(new Resource(5,100, 1, 0.1, "discr1"));
         assertTrue(110 == w.CoastCalculation());
         w.setResources(Res);
         assertTrue(200 == w.amountResources(3));
         assertTrue(0 == w.amountResources(10));
-        w.add(new Resource(100, 2, 0.1, "discr1"));
+        w.add(new Resource(1,100, 2, 0.1, "discr1"));
     }
     
     @Test
     public void test5() {
         Work w = new Work(null, 100, "des");
-        w.add(new Resource(100, 1, 0.1, "discr1"));
+        w.add(new Resource(1,100, 1, 0.1, "discr1"));
         w.delete(5);
         w.setResources(null);
         w.set(0, null);

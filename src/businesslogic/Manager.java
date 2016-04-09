@@ -98,7 +98,7 @@ public class Manager extends Role{
                                 case Storage.INSUFFICIENTLY_RESORSE:
                                     //данного товара недостаточно
                                     int NeedAmount = resource1.getAmount() - store.getResource(index).getAmount();
-                                    ProcurementList.add(new Resource(NeedAmount,
+                                    ProcurementList.add(new Resource(0,NeedAmount,
                                             store.getResource(index).getType(),
                                             store.getResource(index).getCoast(),
                                             store.getResource(index).getName()));
