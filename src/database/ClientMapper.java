@@ -78,16 +78,16 @@ public class ClientMapper extends Mapper<Client, DatabaseManager>{
         value.put(Database.Client.Table + "\".\"" + Database.Client.addres,e.getAddres());        
         if(e.getID()==0||e.getID()==-1){
             //insert
-            value.put(Database.Client.id, "null");            
-            flag = db.execute(QueryBilder.insert(Database.Client.Table, value));
+            value.put(Database.Client.id, "0");
+            String sql = QueryBilder.insert(Database.Client.Table, value);
+            System.out.println(sql);
+            flag = db.execute(sql);
         }else{
             //update
             value.put(Database.Client.id, String.valueOf(e.getID()));
             String whereClause ="\"" + Database.Client.Table + "\".\"" + Database.Client.id +"\"=?";
             String args[] = {String.valueOf(e.getID())};
-            String SQL = QueryBilder.update(Database.Client.Table, value, whereClause, args);
-            System.out.println(SQL);
-            flag = db.execute(SQL);            
+            flag = db.execute(QueryBilder.update(Database.Client.Table, value, whereClause, args));            
         }
         db.commitTransaction();
         return flag;
@@ -109,20 +109,12 @@ public class ClientMapper extends Mapper<Client, DatabaseManager>{
                 flag = db.execute(QueryBilder.insert(Database.Client.Table, value));
             } else {
                 //update
-                value.put(Database.Client.id, String.valueOf(list1.getID()));
-                String whereClause = Database.Client.Table + "." + Database.Client.id +"=?";
+                String whereClause = "\"" + Database.Client.Table + "\".\"" + Database.Client.id +"\"=?";
                 String[] args = {String.valueOf(list1.getID())};
                 flag = db.execute(QueryBilder.update(Database.Client.Table, value, whereClause, args));            
             }
-            if(!flag){
-                db.rollbackTransaction();
-                break;
-            }
         }
-        
-        if(flag){
-            db.commitTransaction();
-        }        
+        db.commitTransaction();    
         return flag;
     }
     
