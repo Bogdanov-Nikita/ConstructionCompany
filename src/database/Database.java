@@ -99,5 +99,14 @@ public  final class Database {
         public final static String name = "name";//char
         public final static String phone_number = "phone_number";//char
     }
-    public final static String StorageView = "StorageView";
+    public final static class StorageView{
+        public final static String View = "StorageView";
+        public final static String id = "id";//PK
+        public final static String location = "location";//char
+        public final static String resource_id = "resource_id";//FK by Resource
+        public final static String type = "type";//INT
+        public final static String name = "name";//char
+        public final static String coast = "coast";//double >= 0
+        public final static String amount = "amount";//INT >= 0
+    }
 }

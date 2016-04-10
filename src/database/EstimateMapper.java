@@ -34,5 +34,10 @@ public class EstimateMapper extends Mapper<Estimate, DatabaseManager>{
     public boolean saveArray(ArrayList<Estimate> list,DatabaseManager db) throws SQLException {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
+
+    @Override
+    public void delete(int id, DatabaseManager db) throws SQLException {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
     
 }

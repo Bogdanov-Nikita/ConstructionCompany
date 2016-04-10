@@ -20,4 +20,5 @@ public abstract class Mapper<Domain,DatabaseHelper>{
     public abstract ArrayList<Domain> loadList(DatabaseHelper db)throws SQLException;    
     public abstract boolean save(Domain e, DatabaseHelper db)throws SQLException;
     public abstract boolean saveArray(ArrayList<Domain> list, DatabaseHelper db)throws SQLException;
+    public abstract void delete(int id,DatabaseManager db) throws SQLException;
 }

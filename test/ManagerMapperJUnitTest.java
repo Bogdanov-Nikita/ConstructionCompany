@@ -4,9 +4,9 @@
  * and open the template in the editor.
  */
 
-import businesslogic.Client;
-import database.ClientMapper;
+import businesslogic.Manager;
 import database.DatabaseManager;
+import database.ManagerMapper;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import org.junit.After;
@@ -20,9 +20,9 @@ import static org.junit.Assert.*;
  *
  * @author Nik
  */
-public class ClientMapperJUnitTest {
+public class ManagerMapperJUnitTest {
     
-    public ClientMapperJUnitTest() {
+    public ManagerMapperJUnitTest() {
     }
     
     @BeforeClass
@@ -52,12 +52,11 @@ public class ClientMapperJUnitTest {
                         "TYPE4", 
                         DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
         db.connect();     
-        Client cl =  new ClientMapper().load(4, db);
+        Manager cl =  new ManagerMapper().load(4, db);
         assertEquals("Id",4,cl.getID());
-        assertEquals("Client4",cl.getName());
+        assertEquals("Manager4",cl.getName());
         assertEquals("1-2-3-4",cl.getPhoneNumber());
-        assertEquals(2,cl.getType());
-        assertEquals("addr4",cl.getAddres());
+        assertEquals("addr4",cl.getOfficeAddress());
         db.closeConnection();
         db.close();
     }
@@ -73,32 +72,29 @@ public class ClientMapperJUnitTest {
                         "TYPE4", 
                         DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
         db.connect();     
-        ArrayList<Client> cl =  new ClientMapper().loadList(db);
+        ArrayList<Manager> cl =  new ManagerMapper().loadList(db);
         
         assertEquals("Size",5, cl.size());
         
         assertEquals(3,cl.get(2).getID());
-        assertEquals("Client3",cl.get(2).getName());
+        assertEquals("Manager3",cl.get(2).getName());
         assertEquals("1-2-3",cl.get(2).getPhoneNumber());
-        assertEquals(1,cl.get(2).getType());
-        assertEquals("addr3",cl.get(2).getAddres());
+        assertEquals("addr3",cl.get(2).getOfficeAddress());
         
         assertEquals(4,cl.get(3).getID());
-        assertEquals("Client4",cl.get(3).getName());
+        assertEquals("Manager4",cl.get(3).getName());
         assertEquals("1-2-3-4",cl.get(3).getPhoneNumber());
-        assertEquals(2,cl.get(3).getType());
-        assertEquals("addr4",cl.get(3).getAddres());
+        assertEquals("addr4",cl.get(3).getOfficeAddress());
         
         assertEquals(5,cl.get(4).getID());
-        assertEquals("Client5",cl.get(4).getName());
+        assertEquals("Manager5",cl.get(4).getName());
         assertEquals("1-2-3-4-5",cl.get(4).getPhoneNumber());
-        assertEquals(1,cl.get(4).getType());
-        assertEquals("addr5",cl.get(4).getAddres());
+        assertEquals("addr5",cl.get(4).getOfficeAddress());
         
         db.closeConnection();
         db.close();
     }
-
+    
     @Test
     public void save() throws SQLException{
         DatabaseManager db = new DatabaseManager(
@@ -112,20 +108,19 @@ public class ClientMapperJUnitTest {
         db.connect(); 
 
         //Временно сохраняем значения из базы.
-        Client Oldcl = new ClientMapper().load(2, db);
+        Manager Oldcl = new ManagerMapper().load(2, db);
         
-        Client cl = new Client(2, "new addr", 2, "new name", "1-2-3-MICRO");
-        new ClientMapper().save(cl, db);        
+        Manager cl = new Manager("new addr", 2, "new name", "1-2-3-MICRO");
+        new ManagerMapper().save(cl, db);        
         
-        cl = new ClientMapper().load(2, db);
+        cl = new ManagerMapper().load(2, db);
         //проверка что всё записалось.
         assertEquals("Id",2,cl.getID());
         assertEquals("new name",cl.getName());
         assertEquals("1-2-3-MICRO",cl.getPhoneNumber());
-        assertEquals(2,cl.getType());
-        assertEquals("new addr",cl.getAddres());
+        assertEquals("new addr",cl.getOfficeAddress());
         //возвращаем обратно старые значения.
-        new ClientMapper().save(Oldcl, db);
+        new ManagerMapper().save(Oldcl, db);
         
         db.closeConnection();
         db.close();
@@ -144,36 +139,33 @@ public class ClientMapperJUnitTest {
         db.connect();
         
         //Временно сохраняем значения из базы.
-        ArrayList<Client> oldlist =  new ClientMapper().loadList(db);
+        ArrayList<Manager> oldlist =  new ManagerMapper().loadList(db);
         
-        ArrayList<Client> list = new ArrayList<>();        
-        list.add(new Client(1, "new addr", 1, "new name 1", "phone1"));
-        list.add(new Client(2, "new addr2", 2, "new name 2", "phone2"));
-        list.add(new Client(2, "new addr3", 3, "new name 3", "phone3"));
-        list.add(new Client(1, "new addr4", 4, "new name 4", "phone4"));
-        new ClientMapper().saveArray(list, db);
+        ArrayList<Manager> list = new ArrayList<>();        
+        list.add(new Manager("new addr", 1, "new name 1", "phone1"));
+        list.add(new Manager("new addr2", 2, "new name 2", "phone2"));
+        list.add(new Manager("new addr3", 3, "new name 3", "phone3"));
+        list.add(new Manager("new addr4", 4, "new name 4", "phone4"));
+        new ManagerMapper().saveArray(list, db);
         //проверка что всё записалось.
-        list = new ClientMapper().loadList(db);
+        list = new ManagerMapper().loadList(db);
         assertEquals(2,list.get(1).getID());
         assertEquals("new name 2",list.get(1).getName());
         assertEquals("phone2",list.get(1).getPhoneNumber());
-        assertEquals(2,list.get(1).getType());
-        assertEquals("new addr2",list.get(1).getAddres());
+        assertEquals("new addr2",list.get(1).getOfficeAddress());
         
         assertEquals(3,list.get(2).getID());
         assertEquals("new name 3",list.get(2).getName());
         assertEquals("phone3",list.get(2).getPhoneNumber());
-        assertEquals(2,list.get(2).getType());
-        assertEquals("new addr3",list.get(2).getAddres());
+        assertEquals("new addr3",list.get(2).getOfficeAddress());
         
         assertEquals(4,list.get(3).getID());
         assertEquals("new name 4",list.get(3).getName());
         assertEquals("phone4",list.get(3).getPhoneNumber());
-        assertEquals(1,list.get(3).getType());
-        assertEquals("new addr4",list.get(3).getAddres());
+        assertEquals("new addr4",list.get(3).getOfficeAddress());
         
         //возвращаем обратно старые значения.
-        new ClientMapper().saveArray(oldlist, db);
+        new ManagerMapper().saveArray(oldlist, db);
         db.closeConnection();
         db.close();
     }
@@ -193,20 +185,19 @@ public class ClientMapperJUnitTest {
         db.connect(); 
 
         
-        Client cl = new Client(2, "new addr7", 0, "new name7", "1-2-3-MICRO-7");
-        new ClientMapper().save(cl, db);        
+        Manager cl = new Manager("new addr7", 0, "new name7", "1-2-3-MICRO-7");
+        new ManagerMapper().save(cl, db);        
         
-        cl = new ClientMapper().load(6, db);
+        cl = new ManagerMapper().load(6, db);
         //проверка что всё записалось.
         assertEquals("Id",6,cl.getID());
         assertEquals("new name7",cl.getName());
         assertEquals("1-2-3-MICRO-7",cl.getPhoneNumber());
-        assertEquals(2,cl.getType());
-        assertEquals("new addr7",cl.getAddres());
+        assertEquals("new addr7",cl.getOfficeAddress());
         
-        new ClientMapper().delete(6, db);
+        new ManagerMapper().delete(6, db);
         db.startTransaction();
-        db.execute("ALTER SEQUENCE CLIENT_ID_GENERATOR RESTART WITH 5");
+        db.execute("ALTER SEQUENCE MANAGER_ID_GENERATOR RESTART WITH 5");
         db.commitTransaction();
         db.closeConnection();
         db.close();

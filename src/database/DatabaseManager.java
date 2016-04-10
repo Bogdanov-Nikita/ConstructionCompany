@@ -323,8 +323,7 @@ public class DatabaseManager {
             throw new SQLException(e.getMessage());
         } 
         return res;
-    } 
-    
+    }
     
     public void closeConnection() throws SQLException{
         Connection.close();

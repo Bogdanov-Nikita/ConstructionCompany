@@ -4,9 +4,9 @@
  * and open the template in the editor.
  */
 
-import businesslogic.Client;
-import database.ClientMapper;
+import businesslogic.Resource;
 import database.DatabaseManager;
+import database.ResourceMapper;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import org.junit.After;
@@ -20,9 +20,9 @@ import static org.junit.Assert.*;
  *
  * @author Nik
  */
-public class ClientMapperJUnitTest {
+public class ResourceMapperJUnitTest {
     
-    public ClientMapperJUnitTest() {
+    public ResourceMapperJUnitTest() {
     }
     
     @BeforeClass
@@ -52,12 +52,11 @@ public class ClientMapperJUnitTest {
                         "TYPE4", 
                         DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
         db.connect();     
-        Client cl =  new ClientMapper().load(4, db);
-        assertEquals("Id",4,cl.getID());
-        assertEquals("Client4",cl.getName());
-        assertEquals("1-2-3-4",cl.getPhoneNumber());
-        assertEquals(2,cl.getType());
-        assertEquals("addr4",cl.getAddres());
+        Resource cl =  new ResourceMapper().load(4, db);
+        assertEquals("Id",4,cl.getId());
+        assertEquals(4,cl.getType());
+        assertEquals("resource 4",cl.getName());        
+        assertEquals(1.5,cl.getCoast(),0);
         db.closeConnection();
         db.close();
     }
@@ -73,32 +72,29 @@ public class ClientMapperJUnitTest {
                         "TYPE4", 
                         DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
         db.connect();     
-        ArrayList<Client> cl =  new ClientMapper().loadList(db);
+        ArrayList<Resource> cl =  new ResourceMapper().loadList(db);
         
-        assertEquals("Size",5, cl.size());
+        assertEquals("Size",10, cl.size());
         
-        assertEquals(3,cl.get(2).getID());
-        assertEquals("Client3",cl.get(2).getName());
-        assertEquals("1-2-3",cl.get(2).getPhoneNumber());
-        assertEquals(1,cl.get(2).getType());
-        assertEquals("addr3",cl.get(2).getAddres());
+        assertEquals("Id",3,cl.get(2).getId());
+        assertEquals(3,cl.get(2).getType());
+        assertEquals("resource 3",cl.get(2).getName());        
+        assertEquals(0.2,cl.get(2).getCoast(),0);
         
-        assertEquals(4,cl.get(3).getID());
-        assertEquals("Client4",cl.get(3).getName());
-        assertEquals("1-2-3-4",cl.get(3).getPhoneNumber());
-        assertEquals(2,cl.get(3).getType());
-        assertEquals("addr4",cl.get(3).getAddres());
+        assertEquals("Id",4,cl.get(3).getId());
+        assertEquals(4,cl.get(3).getType());
+        assertEquals("resource 4",cl.get(3).getName());        
+        assertEquals(1.5,cl.get(3).getCoast(),0);
         
-        assertEquals(5,cl.get(4).getID());
-        assertEquals("Client5",cl.get(4).getName());
-        assertEquals("1-2-3-4-5",cl.get(4).getPhoneNumber());
-        assertEquals(1,cl.get(4).getType());
-        assertEquals("addr5",cl.get(4).getAddres());
+        assertEquals("Id",5,cl.get(4).getId());
+        assertEquals(5,cl.get(4).getType());
+        assertEquals("resource 5",cl.get(4).getName());        
+        assertEquals(5.1,cl.get(4).getCoast(),0);
         
         db.closeConnection();
         db.close();
     }
-
+    
     @Test
     public void save() throws SQLException{
         DatabaseManager db = new DatabaseManager(
@@ -112,20 +108,20 @@ public class ClientMapperJUnitTest {
         db.connect(); 
 
         //Временно сохраняем значения из базы.
-        Client Oldcl = new ClientMapper().load(2, db);
+        Resource Oldcl = new ResourceMapper().load(2, db);
         
-        Client cl = new Client(2, "new addr", 2, "new name", "1-2-3-MICRO");
-        new ClientMapper().save(cl, db);        
+        Resource cl = new Resource(2,0,2,100.5,"new resource 2");
+        new ResourceMapper().save(cl, db);        
         
-        cl = new ClientMapper().load(2, db);
+        cl = new ResourceMapper().load(2, db);
         //проверка что всё записалось.
-        assertEquals("Id",2,cl.getID());
-        assertEquals("new name",cl.getName());
-        assertEquals("1-2-3-MICRO",cl.getPhoneNumber());
+        assertEquals("Id",2,cl.getId());
         assertEquals(2,cl.getType());
-        assertEquals("new addr",cl.getAddres());
+        assertEquals("new resource 2",cl.getName());        
+        assertEquals(100.5,cl.getCoast(),0);
+        
         //возвращаем обратно старые значения.
-        new ClientMapper().save(Oldcl, db);
+        new ResourceMapper().save(Oldcl, db);
         
         db.closeConnection();
         db.close();
@@ -144,36 +140,35 @@ public class ClientMapperJUnitTest {
         db.connect();
         
         //Временно сохраняем значения из базы.
-        ArrayList<Client> oldlist =  new ClientMapper().loadList(db);
+        ArrayList<Resource> oldlist =  new ResourceMapper().loadList(db);
         
-        ArrayList<Client> list = new ArrayList<>();        
-        list.add(new Client(1, "new addr", 1, "new name 1", "phone1"));
-        list.add(new Client(2, "new addr2", 2, "new name 2", "phone2"));
-        list.add(new Client(2, "new addr3", 3, "new name 3", "phone3"));
-        list.add(new Client(1, "new addr4", 4, "new name 4", "phone4"));
-        new ClientMapper().saveArray(list, db);
+        ArrayList<Resource> list = new ArrayList<>();        
+        list.add(new Resource(1,0,1,100.5,"new resource 1"));
+        list.add(new Resource(2,0,2,10.2,"new resource 2"));
+        list.add(new Resource(3,0,3,40.1,"new resource 3"));
+        list.add(new Resource(4,0,4,5.3,"new resource 4"));
+        new ResourceMapper().saveArray(list, db);
         //проверка что всё записалось.
-        list = new ClientMapper().loadList(db);
-        assertEquals(2,list.get(1).getID());
-        assertEquals("new name 2",list.get(1).getName());
-        assertEquals("phone2",list.get(1).getPhoneNumber());
+        list = new ResourceMapper().loadList(db);
+        
+        assertEquals("Id",2,list.get(1).getId());
         assertEquals(2,list.get(1).getType());
-        assertEquals("new addr2",list.get(1).getAddres());
+        assertEquals("new resource 2",list.get(1).getName());        
+        assertEquals(10.2,list.get(1).getCoast(),0);
         
-        assertEquals(3,list.get(2).getID());
-        assertEquals("new name 3",list.get(2).getName());
-        assertEquals("phone3",list.get(2).getPhoneNumber());
-        assertEquals(2,list.get(2).getType());
-        assertEquals("new addr3",list.get(2).getAddres());
+        assertEquals("Id",3,list.get(2).getId());
+        assertEquals(3,list.get(2).getType());
+        assertEquals("new resource 3",list.get(2).getName());        
+        assertEquals(40.1,list.get(2).getCoast(),0);
         
-        assertEquals(4,list.get(3).getID());
-        assertEquals("new name 4",list.get(3).getName());
-        assertEquals("phone4",list.get(3).getPhoneNumber());
-        assertEquals(1,list.get(3).getType());
-        assertEquals("new addr4",list.get(3).getAddres());
+        assertEquals("Id",4,list.get(3).getId());
+        assertEquals(4,list.get(3).getType());
+        assertEquals("new resource 4",list.get(3).getName());        
+        assertEquals(5.3,list.get(3).getCoast(),0);
+        
         
         //возвращаем обратно старые значения.
-        new ClientMapper().saveArray(oldlist, db);
+        new ResourceMapper().saveArray(oldlist, db);
         db.closeConnection();
         db.close();
     }
@@ -193,22 +188,22 @@ public class ClientMapperJUnitTest {
         db.connect(); 
 
         
-        Client cl = new Client(2, "new addr7", 0, "new name7", "1-2-3-MICRO-7");
-        new ClientMapper().save(cl, db);        
+        Resource cl = new Resource(0,0,11,70.1,"new insert res");
+        new ResourceMapper().save(cl, db);        
         
-        cl = new ClientMapper().load(6, db);
+        cl = new ResourceMapper().load(11, db);
         //проверка что всё записалось.
-        assertEquals("Id",6,cl.getID());
-        assertEquals("new name7",cl.getName());
-        assertEquals("1-2-3-MICRO-7",cl.getPhoneNumber());
-        assertEquals(2,cl.getType());
-        assertEquals("new addr7",cl.getAddres());
+        assertEquals("Id",11,cl.getId());
+        assertEquals(11,cl.getType());
+        assertEquals("new insert res",cl.getName());        
+        assertEquals(70.1,cl.getCoast(),0);
         
-        new ClientMapper().delete(6, db);
+        new ResourceMapper().delete(11, db);
         db.startTransaction();
-        db.execute("ALTER SEQUENCE CLIENT_ID_GENERATOR RESTART WITH 5");
+        db.execute("ALTER SEQUENCE RESOUSE_ID_GENERATOR RESTART WITH 10");
         db.commitTransaction();
         db.closeConnection();
         db.close();
     }
+    
 }

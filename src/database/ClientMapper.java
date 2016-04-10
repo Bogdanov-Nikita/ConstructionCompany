@@ -79,13 +79,11 @@ public class ClientMapper extends Mapper<Client, DatabaseManager>{
         if(e.getID()==0||e.getID()==-1){
             //insert
             value.put(Database.Client.id, "0");
-            String sql = QueryBilder.insert(Database.Client.Table, value);
-            System.out.println(sql);
-            flag = db.execute(sql);
+            flag = db.execute(QueryBilder.insert(Database.Client.Table, value));
         }else{
             //update
             value.put(Database.Client.id, String.valueOf(e.getID()));
-            String whereClause ="\"" + Database.Client.Table + "\".\"" + Database.Client.id +"\"=?";
+            String whereClause = "\"" + Database.Client.Table + "\".\"" + Database.Client.id +"\"=?";
             String args[] = {String.valueOf(e.getID())};
             flag = db.execute(QueryBilder.update(Database.Client.Table, value, whereClause, args));            
         }
@@ -94,18 +92,18 @@ public class ClientMapper extends Mapper<Client, DatabaseManager>{
     }
 
     @Override
-    public boolean saveArray(ArrayList<Client> list,DatabaseManager db) throws SQLException {
+    public boolean saveArray(ArrayList<Client> list, DatabaseManager db) throws SQLException {
         db.startTransaction();
         boolean flag = false;
         for (Client list1 : list) {
             ContentValues value = new ContentValues();
-            value.put(Database.Client.name, list1.getName());
-            value.put(Database.Client.phone_number, list1.getPhoneNumber());
-            value.put(Database.Client.type, String.valueOf(list1.getType()));
-            value.put(Database.Client.addres,list1.getAddres());  
+            value.put(Database.Client.Table + "\".\"" + Database.Client.name, list1.getName());
+            value.put(Database.Client.Table + "\".\"" + Database.Client.phone_number, list1.getPhoneNumber());
+            value.put(Database.Client.Table + "\".\"" + Database.Client.type, String.valueOf(list1.getType()));
+            value.put(Database.Client.Table + "\".\"" + Database.Client.addres,list1.getAddres());  
             if (list1.getID() == 0 || list1.getID() == -1) {
                 //insert
-                value.put(Database.Client.id, "null");            
+                value.put(Database.Client.id, "0");            
                 flag = db.execute(QueryBilder.insert(Database.Client.Table, value));
             } else {
                 //update
@@ -118,4 +116,12 @@ public class ClientMapper extends Mapper<Client, DatabaseManager>{
         return flag;
     }
     
+    // о обнулении или возвращении значения генератора не заботимся т.к.не нужно.
+    @Override
+    public void delete(int id,DatabaseManager db) throws SQLException{
+        db.startTransaction();
+        String whereClause = "\"" + Database.Client.Table + "\".\"" + Database.Client.id +"\"="+String.valueOf(id);
+        db.execute(QueryBilder.delete(Database.Client.Table,whereClause));
+        db.commitTransaction();
+    }
 }
