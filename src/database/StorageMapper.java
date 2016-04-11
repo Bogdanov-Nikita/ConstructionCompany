@@ -109,25 +109,38 @@ public class StorageMapper extends Mapper<Storage, DatabaseManager>{
         value.put(Database.StorageInformation.Table + "\".\"" + Database.StorageInformation.location,e.getLocation());         
         if(e.getId()==0||e.getId()==-1){
             //Get Store Id
-            ResultSet set = db.executeQuery("SELECT GEN_ID( STORAGEINFORMATION_ID_GENERATOR, 0 ) FROM RDB$DATABASE;");
+            ResultSet set = db.executeQuery("SELECT GEN_ID( STORAGEINFORMATION_ID_GENERATOR, 1 ) FROM RDB$DATABASE;");
             set.next();
-            int nextID = (set.getInt(1)) + 1;
-            //insert StorageInformation Table
-            value.put(Database.StorageInformation.Table + "\".\"" + Database.StorageInformation.id, String.valueOf(nextID));      
-            flag = db.execute(QueryBilder.insert(Database.StorageInformation.Table,value));
-            //продолжение.
-            ResultSet Rset = db.executeQuery("SELECT GEN_ID( RESOUSE_ID_GENERATOR, 0 ) FROM RDB$DATABASE;"); 
+            int nextID = (set.getInt(1));
+            //запись в StorageInformation Table
+            value.put(Database.StorageInformation.Table + "\".\"" + Database.StorageInformation.id, String.valueOf(nextID));
+            flag = db.execute(QueryBilder.insert(Database.StorageInformation.Table,value));            
+            //запись в Resource Table установить сколько элементов будет добавленно. вместо 0
+            int newRes = 0;//количество ресурсов вставляемых в таблицу не update
+            for(int i = 0; i < e.getResources().size(); i++){
+                if(e.getResource(i).getId() <= 0 ){
+                    newRes++;
+                }
+            }
+            ResultSet Rset = db.executeQuery("SELECT GEN_ID( RESOUSE_ID_GENERATOR, " + String.valueOf(newRes) + " ) FROM RDB$DATABASE;"); 
             Rset.next();
-            int nextResID = (Rset.getInt(1)) + 1;
+            int nextResID = ((Rset.getInt(1)) - newRes) + 1;
+            db.commitTransaction();
             //add Resource Table
-            new ResourceMapper().saveArray(e.getResources(), db);            
+            new ResourceMapper().saveArray(e.getResources(), db);           
             //add Storage Table
+            db.startTransaction();
             for(int i = 0; i <  e.getResources().size(); i++){
-                //update or delete
-                //проверка на дубликаты! перд тем как вставить
+                ContentValues ResourceValue = new ContentValues();
                 // id - nextID
                 // resource_id - (nextResID + i)
                 //amount - e.getResource(i).getAmount()
+                //insert
+                ResourceValue.put(Database.Storage.Table + "\".\"" + Database.Storage.id,String.valueOf(nextID) );
+                ResourceValue.put(Database.Storage.Table + "\".\"" + Database.Storage.resource_id,String.valueOf(nextResID));
+                ResourceValue.put(Database.Storage.Table + "\".\"" + Database.Storage.amount,String.valueOf(e.getResource(i).getAmount()));
+                QueryBilder.insert(Database.Storage.Table,ResourceValue);
+                nextResID++;              
             }
         }else{
             //update
@@ -135,7 +148,7 @@ public class StorageMapper extends Mapper<Storage, DatabaseManager>{
             String whereClause = "\"" + Database.StorageInformation.Table + "\".\"" + Database.StorageInformation.id +"\"=?";
             String args[] = {String.valueOf(e.getId())};
             flag = db.execute(QueryBilder.update(Database.StorageInformation.Table, value, whereClause, args));
-            //продолжение.
+            //TODO:продолжение.
         }
         db.commitTransaction();        
         return flag;
