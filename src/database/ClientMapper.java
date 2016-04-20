@@ -70,7 +70,7 @@ public class ClientMapper extends Mapper<Client, DatabaseManager>{
     @Override
     public boolean save(Client e, DatabaseManager db) throws SQLException {
         boolean flag;
-        db.startTransaction();
+        db.startTransaction();        
         ContentValues value = new ContentValues();
         value.put(Database.Client.Table + "\".\"" + Database.Client.name,e.getName());
         value.put(Database.Client.Table + "\".\"" + Database.Client.phone_number,e.getPhoneNumber());
@@ -78,8 +78,10 @@ public class ClientMapper extends Mapper<Client, DatabaseManager>{
         value.put(Database.Client.Table + "\".\"" + Database.Client.addres,e.getAddres());        
         if(e.getID()==0||e.getID()==-1){
             //insert
-            value.put(Database.Client.id, "0");
-            flag = db.execute(QueryBilder.insert(Database.Client.Table, value));
+            int Id = generateIDs(1, db);
+            e.setID(Id);
+            value.put(Database.Client.id, String.valueOf(Id));
+            flag = db.execute(QueryBilder.insert(Database.Client.Table, value));            
         }else{
             //update
             value.put(Database.Client.id, String.valueOf(e.getID()));
@@ -95,16 +97,25 @@ public class ClientMapper extends Mapper<Client, DatabaseManager>{
     public boolean saveArray(ArrayList<Client> list, DatabaseManager db) throws SQLException {
         db.startTransaction();
         boolean flag = false;
+        int NewIdCount = 0;
+        //цикл по всем элементам для поиска элементов без Id.
+        NewIdCount = list.stream().filter((list1) -> (list1.getID() == 0 || list1.getID() == -1)).map((item) -> 1).reduce(NewIdCount, Integer::sum);
+
+        int LastGeneratedId = (NewIdCount > 0) ? generateIDs(NewIdCount, db) : 0;
+        int NextId = LastGeneratedId - NewIdCount;
+        
         for (Client list1 : list) {
             ContentValues value = new ContentValues();
             value.put(Database.Client.Table + "\".\"" + Database.Client.name, list1.getName());
             value.put(Database.Client.Table + "\".\"" + Database.Client.phone_number, list1.getPhoneNumber());
             value.put(Database.Client.Table + "\".\"" + Database.Client.type, String.valueOf(list1.getType()));
-            value.put(Database.Client.Table + "\".\"" + Database.Client.addres,list1.getAddres());  
+            value.put(Database.Client.Table + "\".\"" + Database.Client.addres, list1.getAddres());
             if (list1.getID() == 0 || list1.getID() == -1) {
                 //insert
-                value.put(Database.Client.id, "0");            
+                value.put(Database.Client.id, String.valueOf(NextId));            
                 flag = db.execute(QueryBilder.insert(Database.Client.Table, value));
+                list1.setID(NextId);
+                NextId++;
             } else {
                 //update
                 String whereClause = "\"" + Database.Client.Table + "\".\"" + Database.Client.id +"\"=?";
@@ -116,12 +127,18 @@ public class ClientMapper extends Mapper<Client, DatabaseManager>{
         return flag;
     }
     
-    // о обнулении или возвращении значения генератора не заботимся т.к.не нужно.
     @Override
     public void delete(int id,DatabaseManager db) throws SQLException{
         db.startTransaction();
         String whereClause = "\"" + Database.Client.Table + "\".\"" + Database.Client.id +"\"="+String.valueOf(id);
         db.execute(QueryBilder.delete(Database.Client.Table,whereClause));
         db.commitTransaction();
+    }
+    
+    @Override
+    public int generateIDs(int size,DatabaseManager db) throws SQLException{
+        ResultSet Rset = db.executeQuery("SELECT GEN_ID( CLIENT_ID_GENERATOR, " + String.valueOf(size) + " ) FROM RDB$DATABASE;"); 
+        Rset.next();        
+        return Rset.getInt(1);
     }
 }

@@ -9,6 +9,7 @@ import businesslogic.Manager;
 import businesslogic.Master;
 import businesslogic.Order;
 import businesslogic.Role;
+import java.util.ArrayList;
 import java.util.Date;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -88,4 +89,5 @@ public class RoleJUnitTest {
         assertTrue(r.PayEstimatePart(ord,1000));
         r.PayEstimateFull(ord);
     }
+
 }

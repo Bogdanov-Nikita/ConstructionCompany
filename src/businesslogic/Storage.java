@@ -38,6 +38,10 @@ public class Storage {
         return Id;
     }
 
+    public void setId(int Id) {
+        this.Id = Id;
+    }    
+    
     public String getLocation() {
         return Location;
     }

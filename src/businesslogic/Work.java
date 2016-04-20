@@ -15,14 +15,14 @@ import java.util.ArrayList;
  * количество ресурсов может быть и нулевым.
  */
 public class Work {
-        
+    int Id;
     boolean finish;                 //Завершенно выполнение услуги или нет.
     double ServiceCoast;            //Стоимось услуги без стоимости ресурсов.
     String Description;             //Описание услуги.
     ArrayList<Resource> resources;  //Ресурсы.
     
 
-    public Work(ArrayList<Resource> Resources,double ServiceCoast,String Description) {
+    public Work(int id,ArrayList<Resource> Resources,double ServiceCoast,String Description) {
         if(ServiceCoast < 0){
             this.ServiceCoast = 0;
         }else{
@@ -120,5 +120,14 @@ public class Work {
     public double getServiceCoast() {
         return ServiceCoast;
     }
+
+    public void setId(int Id) {
+        this.Id = Id;
+    }
+
+    public int getId() {
+        return Id;
+    }
+    
     
 }

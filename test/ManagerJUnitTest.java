@@ -58,8 +58,8 @@ public class ManagerJUnitTest {
         Res.add(new Resource(0,100, 1, 0.1, "discr1"));
         Res.add(new Resource(0,200, 3, 0.5, "discr2"));
         Res.add(new Resource(0,300, 4, 0.6, "discr3"));
-        WorkList.add(new Work(Res, 100, "des"));
-        WorkList.add(new Work(Res, 500, "des2"));
+        WorkList.add(new Work(0,Res, 100, "des"));
+        WorkList.add(new Work(1,Res, 500, "des2"));
         Order ord = m.CreateOrder(new Date(), 1234, WorkList,125);
         assertEquals(Manager.ESTIMATE_ERROR_CAN_NOT_ADD,m.CreateEstimate(null, Estimate.ADDITIONAL, null));
         assertEquals(Manager.ESTIMATE_SUCCESS,m.CreateEstimate(ord, Estimate.ADDITIONAL, WorkList));
@@ -88,8 +88,8 @@ public class ManagerJUnitTest {
         Res.add(new Resource(0,100, 1, 0.1, "discr1"));
         Res.add(new Resource(0,200, 3, 0.5, "discr2"));
         Res.add(new Resource(0,300, 4, 0.6, "discr3"));
-        WorkList.add(new Work(Res, 100, "des"));
-        WorkList.add(new Work(Res, 500, "des2"));
+        WorkList.add(new Work(0,Res, 100, "des"));
+        WorkList.add(new Work(1,Res, 500, "des2"));
         Estimate e = new Estimate(Estimate.MAIN, WorkList);
         Estimate e2 = new Estimate(Estimate.ADDITIONAL, WorkList);
         Order ord = new Order(new Date(), 12345);
@@ -144,8 +144,8 @@ public class ManagerJUnitTest {
         Res.add(new Resource(0,200, 1, 0.1, "discr1"));
         Res.add(new Resource(0,200, 3, 0.5, "discr2"));
         Res.add(new Resource(0,300, 4, 0.6, "discr3"));
-        WorkList.add(new Work(Res, 100, "des"));
-        WorkList.add(new Work(Res, 500, "des2"));
+        WorkList.add(new Work(0,Res, 100, "des"));
+        WorkList.add(new Work(1,Res, 500, "des2"));
         Order ord = m.CreateOrder(new Date(), 123, WorkList, 1234);
         ArrayList<ErrorMsg> er;
         er = m.TakeResourseFromStorage(null,ord.getFullWorkList(),null);
@@ -169,8 +169,8 @@ public class ManagerJUnitTest {
         Res.add(new Resource(0,200, 3, 0.5, "discr2"));
         Res.add(new Resource(0,300, 4, 0.6, "discr3"));
         Res.add(new Resource(0,400, 5, 0.6, "discr3"));
-        WorkList.add(new Work(Res, 100, "des"));
-        WorkList.add(new Work(Res, 500, "des2"));
+        WorkList.add(new Work(0,Res, 100, "des"));
+        WorkList.add(new Work(1,Res, 500, "des2"));
         Order ord = m.CreateOrder(new Date(), 123, WorkList, 1234);
         ArrayList<ErrorMsg> er;
         ArrayList<Resource> prolist = new ArrayList<>();
@@ -209,8 +209,8 @@ public class ManagerJUnitTest {
         Res.add(new Resource(0,200, 3, 0.5, "discr2"));
         Res.add(new Resource(0,300, 4, 0.6, "discr3"));
         Res.add(new Resource(0,400, 5, 0.6, "discr3"));
-        WorkList.add(new Work(Res, 100, "des"));
-        WorkList.add(new Work(Res, 500, "des2"));        
+        WorkList.add(new Work(4,Res, 100, "des"));
+        WorkList.add(new Work(1,Res, 500, "des2"));        
         Order ord = m.CreateOrder(new Date(), 123, WorkList, 1234);
         ArrayList<ErrorMsg> er;
         ArrayList<Resource> prolist = new ArrayList<>();

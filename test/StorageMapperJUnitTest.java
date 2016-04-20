@@ -4,10 +4,10 @@
  * and open the template in the editor.
  */
 
+import businesslogic.Resource;
 import businesslogic.Storage;
 import database.DatabaseManager;
 import database.StorageMapper;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import org.junit.After;
@@ -106,7 +106,7 @@ public class StorageMapperJUnitTest {
     }
     
     @Test
-    public void test() throws SQLException{
+    public void save() throws SQLException{
         DatabaseManager db = new DatabaseManager(
                 "SYSDBA", 
                         "masterkey", 
@@ -115,11 +115,61 @@ public class StorageMapperJUnitTest {
                         DatabaseManager.CharEncoding.UTF8.name(), 
                         "TYPE4", 
                         DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
-        db.connect();
+        db.connect(); 
+
+        //Временно сохраняем значения из базы.
+        Storage Oldcl = new StorageMapper().load(3, db);
+        
+        ArrayList<Resource> res = new ArrayList<>();
+        res.add(new Resource(7,100,7,10.8, "new resource 7"));
+        Storage cl = new Storage(3, "new storage addr 3", res);
+        new StorageMapper().save(cl, db);        
+        
+        cl = new StorageMapper().load(3, db);
+        //проверка что всё записалось.
+        assertEquals("Id",3,cl.getId());
+        assertEquals("new storage addr 3",cl.getLocation());
+        assertEquals(100,cl.getResource(0).getAmount());
+        assertEquals(7,cl.getResource(0).getType());
+        assertEquals(10.8,cl.getResource(0).getCoast(),0);
+        assertEquals("new resource 7",cl.getResource(0).getName());      
+        
+        //возвращаем обратно старые значения.
+        new StorageMapper().save(Oldcl, db);
+        
+        db.closeConnection();
+        db.close();
+    }
+    
+    @Test
+    public void InsertAndDelete() throws SQLException{
+        DatabaseManager db = new DatabaseManager(
+                "SYSDBA", 
+                        "masterkey", 
+                        "localhost", 
+                        "D:\\Users\\Nik\\Documents\\NetBeansProjects\\ConstructionCompany\\test.fdb", 
+                        DatabaseManager.CharEncoding.UTF8.name(), 
+                        "TYPE4", 
+                        DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
+        db.connect(); 
+
+        ArrayList<Resource> Resources = new ArrayList<>();
+        Resources.add(new Resource(8, 1000, 8, 4.5, "resource 8"));
+        Storage cl = new Storage(0,"new location", Resources);
+        new StorageMapper().save(cl, db);
+        
+        cl = new StorageMapper().load(6, db);
+        //проверка что всё записалось.
+        assertEquals("Id",6,cl.getId());
+        assertEquals("new location",cl.getLocation());
+        assertEquals(1000,cl.getResource(0).getAmount());
+        assertEquals(8,cl.getResource(0).getType());
+        assertEquals(4.5,cl.getResource(0).getCoast(),0);
+        assertEquals("resource 8",cl.getResource(0).getName());
+        
+        new StorageMapper().delete(6, db);
         db.startTransaction();
-        ResultSet set = db.executeQuery("SELECT GEN_ID( STORAGEINFORMATION_ID_GENERATOR, 0 ) FROM RDB$DATABASE;");
-        set.next();
-        System.out.println(set.getInt(1));
+        db.execute("ALTER SEQUENCE STORAGEINFORMATION_ID_GENERATOR RESTART WITH 5");
         db.commitTransaction();
         db.closeConnection();
         db.close();

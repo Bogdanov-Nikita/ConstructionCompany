@@ -75,7 +75,9 @@ public class ResourceMapper extends Mapper<Resource, DatabaseManager>{
         value.put(Database.Resource.Table + "\".\"" + Database.Resource.coast,String.valueOf(e.getCoast()));        
         if(e.getId()==0||e.getId()==-1){
             //insert
-            value.put(Database.Resource.id, "0");            
+            int Id = generateIDs(1, db);
+            e.setId(Id);
+            value.put(Database.Resource.id, String.valueOf(Id));            
             flag = db.execute(QueryBilder.insert(Database.Resource.Table, value));
         }else{
             //update
@@ -92,6 +94,11 @@ public class ResourceMapper extends Mapper<Resource, DatabaseManager>{
     public boolean saveArray(ArrayList<Resource> list, DatabaseManager db) throws SQLException{
         db.startTransaction();
         boolean flag = false;
+        int NewIdCount = 0;
+        //цикл по всем элементам для поиска элементов без Id.
+        NewIdCount = list.stream().filter((list1) -> (list1.getId() == 0 || list1.getId() == -1)).map((item) -> 1).reduce(NewIdCount, Integer::sum);
+        int LastGeneratedId = (NewIdCount > 0) ? generateIDs(NewIdCount, db) : 0;
+        int NextId = LastGeneratedId - NewIdCount;
         for (Resource list1 : list) {
             ContentValues value = new ContentValues();
             value.put(Database.Resource.Table + "\".\"" + Database.Resource.type, String.valueOf(list1.getType()));
@@ -99,8 +106,10 @@ public class ResourceMapper extends Mapper<Resource, DatabaseManager>{
             value.put(Database.Resource.Table + "\".\"" + Database.Resource.coast,String.valueOf(list1.getCoast()));  
             if (list1.getId() == 0 || list1.getId() == -1) {
                 //insert
-                value.put(Database.Resource.id, "null");            
+                value.put(Database.Resource.id, String.valueOf(NextId));            
                 flag = db.execute(QueryBilder.insert(Database.Resource.Table, value));
+                list1.setId(NextId);
+                NextId++;
             } else {
                 //update
                 String whereClause = "\"" + Database.Resource.Table + "\".\"" + Database.Resource.id +"\"=?";
@@ -119,5 +128,13 @@ public class ResourceMapper extends Mapper<Resource, DatabaseManager>{
         db.execute(QueryBilder.delete(Database.Resource.Table,whereClause));
         db.commitTransaction();
     }
+
+    @Override
+    public int generateIDs(int size, DatabaseManager db) throws SQLException {
+        ResultSet Rset = db.executeQuery("SELECT GEN_ID( RESOUSE_ID_GENERATOR, " + String.valueOf(size) + " ) FROM RDB$DATABASE;"); 
+        Rset.next();
+        return Rset.getInt(1);
+    }
+    
     
 }

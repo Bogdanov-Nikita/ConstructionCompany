@@ -6,6 +6,7 @@
 package database;
 
 import businesslogic.Estimate;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 
@@ -38,6 +39,13 @@ public class EstimateMapper extends Mapper<Estimate, DatabaseManager>{
     @Override
     public void delete(int id, DatabaseManager db) throws SQLException {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public int generateIDs(int size, DatabaseManager db) throws SQLException {
+        ResultSet Rset = db.executeQuery("SELECT GEN_ID( ESTIMATE_ID_GENERATOR, " + String.valueOf(size) + " ) FROM RDB$DATABASE;"); 
+        Rset.next();        
+        return Rset.getInt(1);
     }
     
 }

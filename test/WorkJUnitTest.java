@@ -41,14 +41,14 @@ public class WorkJUnitTest {
 
     @Test
     public void test1() {
-        Work w = new Work(null, -10, null);
+        Work w = new Work(0,null, -10, null);
         assertNull(w.getResources());
         w.add(new Resource(1,1, 1, 1, "discr"));
         assertNotNull(w.getResources());
     }
     @Test
     public void test2() {
-        Work w = new Work(null, -10, null);
+        Work w = new Work(0,null, -10, null);
         assertNull(w.getDescription());
         assertFalse(w.isFinish());
         w.setDescription("descr");
@@ -65,7 +65,7 @@ public class WorkJUnitTest {
         Res.add(new Resource(1,100, 1, 0.1, "discr1"));
         Res.add(new Resource(2,200, 3, 0.5, "discr2"));
         Res.add(new Resource(3,300, 4, 0.6, "discr3"));
-        Work w = new Work(Res, 100, "des");
+        Work w = new Work(0,Res, 100, "des");
         w.add(null);
         w.set(1, null);
         w.set(1, new Resource(4,400, 8, 1.7, "discr4"));
@@ -84,7 +84,7 @@ public class WorkJUnitTest {
         Res.add(new Resource(1,100, 1, 0.1, "discr1"));
         Res.add(new Resource(2,200, 3, 0.5, "discr2"));
         Res.add(new Resource(3,300, 4, 0.6, "discr3"));
-        Work w = new Work(null, 100, "des");
+        Work w = new Work(0,null, 100, "des");
         assertTrue(100 == w.CoastCalculation());
         assertTrue(0 == w.amountResources(1));
         w.add(new Resource(5,100, 1, 0.1, "discr1"));
@@ -97,7 +97,7 @@ public class WorkJUnitTest {
     
     @Test
     public void test5() {
-        Work w = new Work(null, 100, "des");
+        Work w = new Work(0,null, 100, "des");
         w.add(new Resource(1,100, 1, 0.1, "discr1"));
         w.delete(5);
         w.setResources(null);

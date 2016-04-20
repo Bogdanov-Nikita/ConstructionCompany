@@ -66,14 +66,19 @@ public  final class Database {
         public final static String paid = "paid";//boolean
     }
     
-    public final static class EstimateWorksAndResource{
-        public final static String Table = "EstimateWorksAndResource";
+    public final static class EstimateWorks{
+        public final static String Table = "EstimateWorks";
         public final static String estimate_id = "estimate_id";//FK by Estimate
-        public final static String work_id = "work_id";//FK by Work
-        public final static String resource_id = "resource_id";//FK by Resource
+        public final static String work_id = "work_id";//FK by Work        
         public final static String master_id = "master_id"; //FK by Master
-        public final static String amount = "amount";//INT >= 0
         public final static String finish = "finish";//boolean
+    }
+    
+    public final static class WorksAndResource{
+        public final static String Table = "WorksAndResource";
+        public final static String work_id = "work_id";//FK by Work 
+        public final static String resource_id = "resource_id";//FK by Resource
+        public final static String amount = "amount";//INT >= 0
     }
     
     public final static class Manager{
@@ -108,5 +113,27 @@ public  final class Database {
         public final static String name = "name";//char
         public final static String coast = "coast";//double >= 0
         public final static String amount = "amount";//INT >= 0
+    }
+    public final static class WorkView{
+        public final static String View = "WorkView";
+        public final static String id = "id";//PK
+        public final static String description = "description";//char
+        public final static String service_coast = "service_coast";//double >= 0
+        public final static String resource_id = "resource_id";//FK by Resource
+        public final static String type = "type";//INT
+        public final static String name = "name";//char
+        public final static String coast = "coast";//double >= 0
+        public final static String amount = "amount";//INT >= 0
+    }
+    public final static class EstimateView{
+        public final static String View = "EstimateView";
+        public final static String id = "id";//PK
+        public final static String order_id = "order_id";
+        public final static String type = "type";//INT
+        public final static String coast = "coast";//double >= 0
+        public final static String paid = "paid";//boolean
+        public final static String master_id = "master_id"; //FK by Master
+        public final static String work_id = "work_id";//FK by Work
+        public final static String finish = "finish";//boolean
     }
 }

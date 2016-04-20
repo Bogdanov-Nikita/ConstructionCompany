@@ -16,7 +16,7 @@ import java.util.ArrayList;
  * @author Nik
  */
 public class StorageMapper extends Mapper<Storage, DatabaseManager>{
-//TODO требует завершения работы над ресурсной таблицей
+
     @Override
     public Storage load(int Id, DatabaseManager db) throws SQLException {
         db.startTransaction();
@@ -101,46 +101,44 @@ public class StorageMapper extends Mapper<Storage, DatabaseManager>{
         return StoreList;
     }
 
+    //e.getResources() - должен содержать хотябы один элемент!
     @Override
     public boolean save(Storage e, DatabaseManager db) throws SQLException {
         boolean flag;
+        ArrayList<Integer> NewElement = new ArrayList<>();
+        //создаём список добавляемых ресурсов.
+        for(int j = 0; j < e.getResources().size(); j++){
+            int id = e.getResource(j).getId();
+            if(id == 0 || id == -1){
+                NewElement.add(j);
+            }
+        }
+        
+        //insert/update Resource Table
+        new ResourceMapper().saveArray(e.getResources(), db);
+        //insert/update  StorageInformation Table
         db.startTransaction();
         ContentValues value = new ContentValues();
         value.put(Database.StorageInformation.Table + "\".\"" + Database.StorageInformation.location,e.getLocation());         
-        if(e.getId()==0||e.getId()==-1){
+        if(e.getId() == 0||e.getId() == -1){
             //Get Store Id
-            ResultSet set = db.executeQuery("SELECT GEN_ID( STORAGEINFORMATION_ID_GENERATOR, 1 ) FROM RDB$DATABASE;");
-            set.next();
-            int nextID = (set.getInt(1));
+            int nextID = generateIDs(1, db);
+            e.setId(nextID);
             //запись в StorageInformation Table
             value.put(Database.StorageInformation.Table + "\".\"" + Database.StorageInformation.id, String.valueOf(nextID));
             flag = db.execute(QueryBilder.insert(Database.StorageInformation.Table,value));            
-            //запись в Resource Table установить сколько элементов будет добавленно. вместо 0
-            int newRes = 0;//количество ресурсов вставляемых в таблицу не update
-            for(int i = 0; i < e.getResources().size(); i++){
-                if(e.getResource(i).getId() <= 0 ){
-                    newRes++;
-                }
-            }
-            ResultSet Rset = db.executeQuery("SELECT GEN_ID( RESOUSE_ID_GENERATOR, " + String.valueOf(newRes) + " ) FROM RDB$DATABASE;"); 
-            Rset.next();
-            int nextResID = ((Rset.getInt(1)) - newRes) + 1;
             db.commitTransaction();
-            //add Resource Table
-            new ResourceMapper().saveArray(e.getResources(), db);           
-            //add Storage Table
+            //insert в Storage Table
             db.startTransaction();
             for(int i = 0; i <  e.getResources().size(); i++){
                 ContentValues ResourceValue = new ContentValues();
                 // id - nextID
                 // resource_id - (nextResID + i)
                 //amount - e.getResource(i).getAmount()
-                //insert
                 ResourceValue.put(Database.Storage.Table + "\".\"" + Database.Storage.id,String.valueOf(nextID) );
-                ResourceValue.put(Database.Storage.Table + "\".\"" + Database.Storage.resource_id,String.valueOf(nextResID));
+                ResourceValue.put(Database.Storage.Table + "\".\"" + Database.Storage.resource_id,String.valueOf(e.getResource(i).getId()));
                 ResourceValue.put(Database.Storage.Table + "\".\"" + Database.Storage.amount,String.valueOf(e.getResource(i).getAmount()));
-                QueryBilder.insert(Database.Storage.Table,ResourceValue);
-                nextResID++;              
+                flag = db.execute(QueryBilder.insert(Database.Storage.Table,ResourceValue));              
             }
         }else{
             //update
@@ -148,22 +146,67 @@ public class StorageMapper extends Mapper<Storage, DatabaseManager>{
             String whereClause = "\"" + Database.StorageInformation.Table + "\".\"" + Database.StorageInformation.id +"\"=?";
             String args[] = {String.valueOf(e.getId())};
             flag = db.execute(QueryBilder.update(Database.StorageInformation.Table, value, whereClause, args));
-            //TODO:продолжение.
+            db.commitTransaction();
+            //insert/update в Storage Table
+            db.startTransaction();
+            int index = 0;
+            for(int i = 0; i <  e.getResources().size(); i++){
+                ContentValues ResourceValue = new ContentValues();
+                // id - nextID
+                // resource_id - (nextResID + i)
+                //amount - e.getResource(i).getAmount()
+                ResourceValue.put(Database.Storage.Table + "\".\"" + Database.Storage.id,String.valueOf(e.getId()) );
+                ResourceValue.put(Database.Storage.Table + "\".\"" + Database.Storage.resource_id,String.valueOf(e.getResource(i).getId()));
+                ResourceValue.put(Database.Storage.Table + "\".\"" + Database.Storage.amount,String.valueOf(e.getResource(i).getAmount()));
+                if(!NewElement.isEmpty() && (NewElement.get(index) == e.getResource(i).getId())){
+                    //insert
+                    flag = db.execute(QueryBilder.insert(Database.Storage.Table,ResourceValue));
+                    index++;
+                }else{
+                    //update
+                    String whereClauseR = "\"" + Database.Storage.Table + "\".\"" + Database.Storage.id +"\"=? AND " + 
+                    "\"" + Database.Storage.Table + "\".\"" + Database.Storage.resource_id +"\"=?";
+                    String argsR[] = {String.valueOf(e.getId()),String.valueOf(e.getResource(i).getId())};
+                    flag = db.execute(QueryBilder.update(Database.Storage.Table,ResourceValue,whereClauseR,argsR));
+                }
+            }
         }
         db.commitTransaction();        
         return flag;
-        
-        //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
     public boolean saveArray(ArrayList<Storage> list, DatabaseManager db) throws SQLException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        boolean flag = false;
+        for (Storage list1 : list) {
+            flag = save(list1, db);
+        }
+        return flag;
     }
 
     @Override
     public void delete(int id, DatabaseManager db) throws SQLException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        clearStorage(id, db);
+        db.startTransaction();
+        ContentValues value = new ContentValues();
+        value.put("\"" + Database.StorageInformation.Table + "\".\"" + Database.StorageInformation.id +"\"", String.valueOf(id));
+        db.execute(QueryBilder.delete(Database.StorageInformation.Table, value));
+        db.commitTransaction();
     }
-    
+
+    public void clearStorage(int id,DatabaseManager db) throws SQLException{
+        db.startTransaction();
+        ContentValues value = new ContentValues();
+        value.put("\"" + Database.Storage.Table + "\".\"" + Database.Storage.id +"\"", String.valueOf(id));
+        db.execute(QueryBilder.delete(Database.Storage.Table, value));
+        db.commitTransaction();
+    }
+
+    @Override
+    public int generateIDs(int size, DatabaseManager db) throws SQLException {
+        ResultSet Rset = db.executeQuery("SELECT GEN_ID( STORAGEINFORMATION_ID_GENERATOR, " + String.valueOf(size) + " ) FROM RDB$DATABASE;"); 
+        Rset.next();        
+        return Rset.getInt(1);
+    }
+
 }

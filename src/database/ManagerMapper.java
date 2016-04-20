@@ -76,7 +76,9 @@ public class ManagerMapper extends Mapper <Manager, DatabaseManager>{
         value.put(Database.Manager.Table + "\".\"" + Database.Manager.office_address,e.getOfficeAddress());        
         if(e.getID()==0||e.getID()==-1){
             //insert
-            value.put(Database.Manager.id, "0");            
+            int Id = generateIDs(1, db);
+            e.setID(Id);
+            value.put(Database.Manager.id, String.valueOf(Id));            
             flag = db.execute(QueryBilder.insert(Database.Manager.Table, value));
         }else{
             //update
@@ -93,6 +95,11 @@ public class ManagerMapper extends Mapper <Manager, DatabaseManager>{
     public boolean saveArray(ArrayList<Manager> list, DatabaseManager db) throws SQLException {
         db.startTransaction();
         boolean flag = false;
+        int NewIdCount = 0;
+        //цикл по всем элементам для поиска элементов без Id.
+        NewIdCount = list.stream().filter((list1) -> (list1.getID() == 0 || list1.getID() == -1)).map((item) -> 1).reduce(NewIdCount, Integer::sum);
+        int LastGeneratedId = (NewIdCount > 0) ? generateIDs(NewIdCount, db) : 0;
+        int NextId = LastGeneratedId - NewIdCount;
         for (Manager list1 : list) {
             ContentValues value = new ContentValues();
             value.put(Database.Manager.Table + "\".\"" + Database.Manager.name, list1.getName());
@@ -100,8 +107,10 @@ public class ManagerMapper extends Mapper <Manager, DatabaseManager>{
             value.put(Database.Manager.Table + "\".\"" + Database.Manager.office_address,list1.getOfficeAddress());  
             if (list1.getID() == 0 || list1.getID() == -1) {
                 //insert
-                value.put(Database.Manager.id, "null");            
+                value.put(Database.Manager.id, String.valueOf(NextId));            
                 flag = db.execute(QueryBilder.insert(Database.Manager.Table, value));
+                list1.setID(NextId);
+                NextId++;
             } else {
                 //update
                 String whereClause = "\"" + Database.Manager.Table + "\".\"" + Database.Manager.id +"\"=?";
@@ -119,6 +128,13 @@ public class ManagerMapper extends Mapper <Manager, DatabaseManager>{
         String whereClause = "\"" + Database.Manager.Table + "\".\"" + Database.Manager.id +"\"="+String.valueOf(id);
         db.execute(QueryBilder.delete(Database.Manager.Table,whereClause));
         db.commitTransaction();
+    }
+
+    @Override
+    public int generateIDs(int size, DatabaseManager db) throws SQLException {
+        ResultSet Rset = db.executeQuery("SELECT GEN_ID( MANAGER_ID_GENERATOR, " + String.valueOf(size) + " ) FROM RDB$DATABASE;"); 
+        Rset.next();        
+        return Rset.getInt(1);
     }
     
 }

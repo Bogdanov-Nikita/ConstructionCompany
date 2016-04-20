@@ -60,14 +60,15 @@ public class DatabaseManagerJUnitTest {
         String Controll[] = {
             Database.Client.Table,
             Database.Estimate.Table,
-            Database.EstimateWorksAndResource.Table,
+            Database.EstimateWorks.Table,
             Database.Manager.Table,
             Database.Master.Table,
             Database.Order.Table,
             Database.Resource.Table,
             Database.Storage.Table,
             Database.StorageInformation.Table,
-            Database.Work.Table
+            Database.Work.Table,            
+            Database.WorksAndResource.Table
         };
         
         
@@ -89,12 +90,10 @@ public class DatabaseManagerJUnitTest {
                 Database.Estimate.coast,
                 Database.Estimate.paid
             },{
-                Database.EstimateWorksAndResource.estimate_id,
-                Database.EstimateWorksAndResource.master_id,
-                Database.EstimateWorksAndResource.work_id,
-                Database.EstimateWorksAndResource.finish,
-                Database.EstimateWorksAndResource.resource_id,
-                Database.EstimateWorksAndResource.amount
+                Database.EstimateWorks.estimate_id,
+                Database.EstimateWorks.master_id,
+                Database.EstimateWorks.work_id,
+                Database.EstimateWorks.finish
             },{
                 Database.Manager.id,
                 Database.Manager.name,
@@ -130,6 +129,10 @@ public class DatabaseManagerJUnitTest {
                 Database.Work.id,
                 Database.Work.description,
                 Database.Work.service_coast
+            },{
+                Database.WorksAndResource.work_id,
+                Database.WorksAndResource.resource_id,
+                Database.WorksAndResource.amount
             }
         };
         int i = 0;
