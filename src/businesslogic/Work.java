@@ -15,14 +15,17 @@ import java.util.ArrayList;
  * количество ресурсов может быть и нулевым.
  */
 public class Work {
-    int Id;
+    int Id;                         //Id работы.
+    int MasterId;                   //Мастер завершивший работу. указываетя внутри таблицы сметы
     boolean finish;                 //Завершенно выполнение услуги или нет.
     double ServiceCoast;            //Стоимось услуги без стоимости ресурсов.
     String Description;             //Описание услуги.
     ArrayList<Resource> resources;  //Ресурсы.
     
 
-    public Work(int id,ArrayList<Resource> Resources,double ServiceCoast,String Description) {
+    public Work(int Id,ArrayList<Resource> Resources,double ServiceCoast,String Description) {
+        this.Id = Id;
+        this.MasterId = 0;
         if(ServiceCoast < 0){
             this.ServiceCoast = 0;
         }else{
@@ -101,6 +104,11 @@ public class Work {
         return resources;
     }
 
+    public Resource getResource(int i) {
+        return (resources != null) ? (
+                (i < resources.size()) ? resources.get(i) : null) : null;
+    }
+    
     public void setDescription(String Description) {
         this.Description = Description;
     }
@@ -128,6 +136,13 @@ public class Work {
     public int getId() {
         return Id;
     }
+
+    public void setMasterId(int MasterId) {
+        this.MasterId = MasterId;
+    }
     
+    public int getMasterId() {
+        return MasterId;
+    }    
     
 }

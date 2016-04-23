@@ -17,12 +17,16 @@ public class Estimate {
     public final static int MAIN = 0x1;
     public final static int ADDITIONAL = 0x2;
     
+    int Id;
+    int OrderId;
     boolean Paid;
     int Type;
     double Coast;
     ArrayList<Work> WorkList;
 
-    public Estimate(boolean Paid, int Type, double Coast, ArrayList<Work> WorkList) {
+    public Estimate(int Id,int OrderId,boolean Paid, int Type, double Coast, ArrayList<Work> WorkList) {
+        this.Id = Id;
+        this.OrderId = OrderId;
         this.Paid = Paid;
         this.Type = Type;
         this.Coast = Coast;
@@ -30,6 +34,7 @@ public class Estimate {
     }    
     
     public Estimate(int Type,ArrayList<Work> WorkList) {
+        this.Id = 0;
         this.Paid = false;
         this.Type = Type;
         this.Coast = 0;
@@ -104,8 +109,29 @@ public class Estimate {
         return WorkList;
     }
     
+    public Work getWork(int i) {
+        return (WorkList != null) ? (
+                (i < WorkList.size()) ? WorkList.get(i) : null) : null;
+    }
+    
     public boolean isFinish(){//проверка есть ли ещё невыполненная работа
         return WorkList.stream().noneMatch((WorkList1) -> (!WorkList1.isFinish()));
+    }
+
+    public void setId(int Id) {
+        this.Id = Id;
+    }
+
+    public int getId() {
+        return Id;
+    }
+
+    public void setOrderId(int OrderId) {
+        this.OrderId = OrderId;
+    }
+    
+    public int getOrderId() {
+        return OrderId;
     }
     
 }

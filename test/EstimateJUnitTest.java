@@ -98,7 +98,7 @@ public class EstimateJUnitTest {
         ArrayList<Work> WL2 = new ArrayList<>(WL);
         assertEquals(390,WL.get(0).CoastCalculation(),0);
         assertEquals(790,WL.get(1).CoastCalculation(),0);
-        Estimate e = new Estimate(true,Estimate.MAIN,0, WL);
+        Estimate e = new Estimate(1,0,true,Estimate.MAIN,0, WL);
         e.delete(1);
         assertEquals(390,e.CoastCalculation(),0);
         e.delete(0);

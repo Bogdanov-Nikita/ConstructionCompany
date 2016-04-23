@@ -21,46 +21,32 @@ public class WorkMapper extends Mapper<Work, DatabaseManager>{
     public Work load(int Id, DatabaseManager db) throws SQLException {
         db.startTransaction();
         String columns[] = {
-            Database.Work.id,
-            Database.Work.description,
-            Database.Work.service_coast,
+            Database.WorkView.id,//1            
+            Database.WorkView.description,//2
+            Database.WorkView.service_coast,//3
+            Database.WorkView.resource_id,//4
+            Database.WorkView.type,//5
+            Database.WorkView.name,//6
+            Database.WorkView.coast,//7
+            Database.WorkView.amount//8
         };
         ResultSet rs = db.executeQuery(
                 QueryBilder.select(
-                Database.Work.Table,
-                columns,
-                Database.Work.id+"=?",
-                new String[]{String.valueOf(Id)},
-                null,
-                Database.Work.id)
-        );
-        double ServiceCoast = rs.getDouble(2);
-        String Description = rs.getString(3).trim();
-        rs.next();
-        db.commitTransaction();
-        //загрузка таблицы ресурсов
-        db.startTransaction();
-        String Wcolumns[] = {
-            Database.WorkView.id,
-            Database.WorkView.resource_id,
-            Database.WorkView.type,
-            Database.WorkView.name,
-            Database.WorkView.coast,
-            Database.WorkView.amount
-        };
-        ResultSet Rrs = db.executeQuery(
-                QueryBilder.select(
                         Database.WorkView.View,
-                        Wcolumns,
-                        Database.WorkView.id+"=?",
+                        columns,
+                        "\"" + Database.WorkView.id + "\"=?",
                         new String[]{String.valueOf(Id)},
                         null,
                         Database.WorkView.resource_id
                 )
-        );        
+        );
+        rs.next();
+        String Description = rs.getString(2).trim(); 
+        double ServiceCoast = rs.getDouble(3);        
         ArrayList<Resource> ResourceList = new ArrayList<>();
-        while(Rrs.next()){
-            ResourceList.add(new Resource(rs.getInt(2),rs.getInt(6),rs.getInt(3),rs.getDouble(5),rs.getString(4).trim()));
+        ResourceList.add(new Resource(rs.getInt(4),rs.getInt(8),rs.getInt(5),rs.getDouble(7),rs.getString(6).trim()));
+        while(rs.next()){
+            ResourceList.add(new Resource(rs.getInt(4),rs.getInt(8),rs.getInt(5),rs.getDouble(7),rs.getString(6).trim()));
         }
         db.commitTransaction();        
         return new Work(Id,ResourceList,ServiceCoast,Description);
@@ -86,7 +72,7 @@ public class WorkMapper extends Mapper<Work, DatabaseManager>{
                         null,
                         null,
                         null,
-                        Database.WorkView.resource_id
+                        Database.WorkView.id+ "\",\"" + Database.WorkView.resource_id
                 )
         );        
         
@@ -117,25 +103,112 @@ public class WorkMapper extends Mapper<Work, DatabaseManager>{
             }
             listList.get(i).add(new Resource(rs.getInt(4), rs.getInt(8), rs.getInt(5), rs.getDouble(7), rs.getString(6).trim()));
         }
+        WorkList.add(new Work(lastId,listList.get(i),LastCoast,LastDescription));
         db.commitTransaction();
         return WorkList;       
     }
 
     @Override
     public boolean save(Work e, DatabaseManager db) throws SQLException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        boolean flag;
+        ArrayList<Integer> NewElement = new ArrayList<>();
+        //создаём список добавляемых ресурсов.
+        for(int j = 0; j < e.getResources().size(); j++){
+            int id = e.getResource(j).getId();
+            if(id == 0 || id == -1){
+                NewElement.add(j);
+            }
+        }
+        
+        //insert/update Resource Table
+        new ResourceMapper().saveArray(e.getResources(), db);
+        //insert/update  Work Table
+        db.startTransaction();
+        ContentValues value = new ContentValues();
+        value.put(Database.Work.Table + "\".\"" + Database.Work.description,e.getDescription());
+        value.put(Database.Work.Table + "\".\"" + Database.Work.service_coast,String.valueOf(e.getServiceCoast()));
+        if(e.getId() == 0||e.getId() == -1){
+            //Get Store Id
+            int nextID = generateIDs(1, db);
+            e.setId(nextID);
+            //запись в Work Table
+            value.put(Database.Work.Table + "\".\"" + Database.Work.id, String.valueOf(nextID));
+            flag = db.execute(QueryBilder.insert(Database.Work.Table,value));            
+            db.commitTransaction();
+            //insert в WorksAndResource Table
+            db.startTransaction();
+            for(int i = 0; i <  e.getResources().size(); i++){
+                ContentValues ResourceValue = new ContentValues();
+                // work_id - nextID
+                // resource_id - (nextResID + i)
+                //amount - e.getResource(i).getAmount()
+                ResourceValue.put(Database.WorksAndResource.Table + "\".\"" + Database.WorksAndResource.work_id,String.valueOf(nextID) );
+                ResourceValue.put(Database.WorksAndResource.Table + "\".\"" + Database.WorksAndResource.resource_id,String.valueOf(e.getResource(i).getId()));
+                ResourceValue.put(Database.WorksAndResource.Table + "\".\"" + Database.WorksAndResource.amount,String.valueOf(e.getResource(i).getAmount()));
+                flag = db.execute(QueryBilder.insert(Database.WorksAndResource.Table,ResourceValue));              
+            }
+        }else{
+            //update
+            value.put(Database.Work.id, String.valueOf(e.getId()));
+            String whereClause = "\"" + Database.Work.Table + "\".\"" + Database.Work.id +"\"=?";
+            String args[] = {String.valueOf(e.getId())};
+            flag = db.execute(QueryBilder.update(Database.Work.Table, value, whereClause, args));
+            db.commitTransaction();
+            //insert/update в Storage Table
+            db.startTransaction();
+            int index = 0;
+            for(int i = 0; i <  e.getResources().size(); i++){
+                ContentValues ResourceValue = new ContentValues();
+                // work_id - nextID
+                // resource_id - (nextResID + i)
+                //amount - e.getResource(i).getAmount()
+                ResourceValue.put(Database.WorksAndResource.Table + "\".\"" + Database.WorksAndResource.work_id,String.valueOf(e.getId()) );
+                ResourceValue.put(Database.WorksAndResource.Table + "\".\"" + Database.WorksAndResource.resource_id,String.valueOf(e.getResource(i).getId()));
+                ResourceValue.put(Database.WorksAndResource.Table + "\".\"" + Database.WorksAndResource.amount,String.valueOf(e.getResource(i).getAmount()));
+                if(!NewElement.isEmpty() && (NewElement.get(index) == e.getResource(i).getId())){
+                    //insert
+                    flag = db.execute(QueryBilder.insert(Database.WorksAndResource.Table,ResourceValue));
+                    index++;
+                }else{
+                    //update
+                    String whereClauseR = "\"" + Database.WorksAndResource.Table + "\".\"" + Database.WorksAndResource.work_id +"\"=? AND " + 
+                    "\"" + Database.WorksAndResource.Table + "\".\"" + Database.WorksAndResource.resource_id +"\"=?";
+                    String argsR[] = {String.valueOf(e.getId()),String.valueOf(e.getResource(i).getId())};
+                    flag = db.execute(QueryBilder.update(Database.WorksAndResource.Table,ResourceValue,whereClauseR,argsR));
+                }
+            }
+        }
+        db.commitTransaction();        
+        return flag;
     }
 
     @Override
     public boolean saveArray(ArrayList<Work> list, DatabaseManager db) throws SQLException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        boolean flag = false;
+        for (Work list1 : list) {
+            flag = save(list1, db);
+        }
+        return flag;
     }
 
     @Override
     public void delete(int id, DatabaseManager db) throws SQLException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        clearWorkResources(id, db);
+        db.startTransaction();
+        ContentValues value = new ContentValues();
+        value.put("\"" + Database.Work.Table + "\".\"" + Database.Work.id +"\"", String.valueOf(id));
+        db.execute(QueryBilder.delete(Database.Work.Table, value));
+        db.commitTransaction();
     }
 
+    public void clearWorkResources(int id,DatabaseManager db) throws SQLException{
+        db.startTransaction();
+        ContentValues value = new ContentValues();
+        value.put("\"" + Database.WorksAndResource.Table + "\".\"" + Database.WorksAndResource.work_id +"\"", String.valueOf(id));
+        db.execute(QueryBilder.delete(Database.WorksAndResource.Table, value));
+        db.commitTransaction();
+    }
+    
     @Override
     public int generateIDs(int size, DatabaseManager db) throws SQLException {
         ResultSet Rset = db.executeQuery("SELECT GEN_ID( WORK_ID_GENERATOR, " + String.valueOf(size) + " ) FROM RDB$DATABASE;"); 
