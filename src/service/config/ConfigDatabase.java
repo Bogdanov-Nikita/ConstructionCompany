@@ -93,7 +93,7 @@ public class ConfigDatabase {
 
     @Override
     public String toString() {
-        String xml = "<Databse>\r\n" + 
+        String xml = "<Database>\r\n" + 
 		"<host>" + host + "</host>\r\n" +
 		"<path>" + path + "</path>\r\n" +
 		"<user>" + user + "</user>\r\n" +

@@ -35,9 +35,13 @@ public class ClientMapper extends Mapper<Client, DatabaseManager>{
                         null,
                         Database.Client.id)
         );
-        rs.next();
-        db.commitTransaction();        
-        return new Client(rs.getInt(4), rs.getString(5).trim(), rs.getInt(1), rs.getString(2).trim(), rs.getString(3).trim());       
+        if(rs.next()){
+            db.commitTransaction();        
+            return new Client(rs.getInt(4), rs.getString(5).trim(), rs.getInt(1), rs.getString(2).trim(), rs.getString(3).trim());
+        }else{
+            db.commitTransaction();
+            return null;
+        }
     }
 
     @Override

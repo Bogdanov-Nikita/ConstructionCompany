@@ -30,9 +30,9 @@ public class Order {//Прописать определение CurrentCoast с�
     
     double CurrentCoast;
     double TotalCoast;    
-    Date Create;
-    Date LastUpdate;
-    Date End;
+    public Date Create;
+    public Date LastUpdate;
+    public Date End;
     ArrayList<Estimate> EstimateList;
     
     //время брать от сервера базы данных, время не объект бизнес логики
@@ -45,7 +45,8 @@ public class Order {//Прописать определение CurrentCoast с�
         Status = OPEN;
     }
     //для инициализации от базы данных
-    public Order(int Number, 
+    public Order(int id,
+            int Number, 
             int Status, 
             int ClientID, 
             int ManagerID, 
@@ -55,6 +56,7 @@ public class Order {//Прописать определение CurrentCoast с�
             Date LastUpdate, 
             Date End, 
             ArrayList<Estimate> EstimateList) {
+        this.id = id;
         this.Number = Number;
         this.Status = Status;
         this.ClientID = ClientID;
@@ -222,6 +224,22 @@ public class Order {//Прописать определение CurrentCoast с�
 
     public void setClientID(int ClientID) {
         this.ClientID = ClientID;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }    
+    
+    public int getId() {
+        return id;
+    }
+
+    public void setNumber(int Number) {
+        this.Number = Number;
+    }
+    
+    public int getNumber() {
+        return Number;
     }
     
     //не отсортирован и содержит дублирующие позиции!

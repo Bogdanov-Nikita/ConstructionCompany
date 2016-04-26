@@ -34,9 +34,13 @@ public class MasterMapper extends Mapper<Master, DatabaseManager>{
                         Database.Master.id
                 )
         );
-        rs.next();
-        db.commitTransaction();        
-        return new Master(rs.getInt(1), rs.getString(2).trim(), rs.getString(3).trim());
+        if(rs.next()){
+            db.commitTransaction();        
+            return new Master(rs.getInt(1), rs.getString(2).trim(), rs.getString(3).trim());
+        }else{
+            db.commitTransaction();
+            return null;
+        }
     }
 
     @Override

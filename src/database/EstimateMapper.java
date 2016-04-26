@@ -40,8 +40,7 @@ public class EstimateMapper extends Mapper<Estimate, DatabaseManager>{
                         Database.EstimateView.work_id
                 )
         );        
-        rs.next();
-        
+        if(rs.next()){
         ArrayList<Work> WorkList = new ArrayList<>();
         ArrayList<Integer> IdList = new ArrayList<>();
         ArrayList<Integer> MasterIdList = new ArrayList<>();
@@ -63,7 +62,11 @@ public class EstimateMapper extends Mapper<Estimate, DatabaseManager>{
             WorkList.get(index).setMasterId(MasterIdList.get(index));
             index++;
         }
-        return new Estimate(Id,OrderId,Paid,Type,Coast,WorkList);
+            return new Estimate(Id,OrderId,Paid,Type,Coast,WorkList);
+        }else{
+            return null;
+        }
+        
     }
 
     @Override
@@ -101,7 +104,7 @@ public class EstimateMapper extends Mapper<Estimate, DatabaseManager>{
         ArrayList<Integer> NewElement = new ArrayList<>();
         //создаём список добавляемых ресурсов.
         for(int j = 0; j < e.getWorkList().size(); j++){
-            int id = e.getWorkList().get(j).getId();
+            int id = e.getWork(j).getId();
             if(id == 0 || id == -1){
                 NewElement.add(j);
             }

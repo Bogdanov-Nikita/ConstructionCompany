@@ -38,8 +38,8 @@ public class ConfigSettings {
     @Override
     public String toString() {
         String xml = "<Settings AskExitDialog = " + 
-                ((this.AskDialog) ? "true":"false") +
-                " ExitOperation = " + ((this.ExitOperation) ? "true" : "false")
+                ((this.AskDialog) ? "\"true\"":"\"false\"") +
+                " ExitOperation = " + ((this.ExitOperation) ? "\"true\"" : "\"false\"")
                 +">\r\n</Settings>";
         return xml;
     }

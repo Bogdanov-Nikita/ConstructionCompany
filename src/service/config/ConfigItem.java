@@ -48,8 +48,9 @@ public class ConfigItem {
     
     @Override
     public String toString() {
-        String xml = "<Role type = " + Role.getType() + 
-                " login = " + Role.getLogin() +">\r\n" +
+        String xml = "<Role type = \"" + Role.getType() + "\" "
+                + "login = \"" + Role.getLogin() + "\" "
+                + "password = \"" + Role.getPassword() +"\">\r\n" +
             Settings.toString() + "\r\n" +
             Database.toString() + "\r\n" +
             "</Role>";

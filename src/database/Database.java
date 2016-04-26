@@ -104,6 +104,7 @@ public  final class Database {
         public final static String name = "name";//char
         public final static String phone_number = "phone_number";//char
     }
+    
     public final static class StorageView{
         public final static String View = "StorageView";
         public final static String id = "id";//PK
@@ -114,6 +115,7 @@ public  final class Database {
         public final static String coast = "coast";//double >= 0
         public final static String amount = "amount";//INT >= 0
     }
+    
     public final static class WorkView{
         public final static String View = "WorkView";
         public final static String id = "id";//PK
@@ -125,6 +127,7 @@ public  final class Database {
         public final static String coast = "coast";//double >= 0
         public final static String amount = "amount";//INT >= 0
     }
+    
     public final static class EstimateView{
         public final static String View = "EstimateView";
         public final static String id = "id";//PK
@@ -135,5 +138,11 @@ public  final class Database {
         public final static String master_id = "master_id"; //FK by Master
         public final static String work_id = "work_id";//FK by Work
         public final static String finish = "finish";//boolean
+    }
+    
+    public final static class Roles{
+        public final static String Table = "Roles";
+        public final static String login = "login";//char unq not null
+        public final static String role_id = "role_id";//not null and > 0
     }
 }

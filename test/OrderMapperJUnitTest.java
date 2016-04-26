@@ -5,12 +5,14 @@
  */
 
 import businesslogic.Estimate;
-import businesslogic.Work;
+import businesslogic.Order;
 import database.DatabaseManager;
 import database.EstimateMapper;
-import database.WorkMapper;
+import database.OrderMapper;
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -23,9 +25,9 @@ import org.junit.Ignore;
  *
  * @author Nik
  */
-public class EstimateMapperJUnitTest {
+public class OrderMapperJUnitTest {
     
-    public EstimateMapperJUnitTest() {
+    public OrderMapperJUnitTest() {
     }
     
     @BeforeClass
@@ -43,7 +45,7 @@ public class EstimateMapperJUnitTest {
     @After
     public void tearDown() {
     }
-    
+
     @Test
     public void load() throws SQLException {
         DatabaseManager db = new DatabaseManager(
@@ -55,27 +57,24 @@ public class EstimateMapperJUnitTest {
                         "TYPE4", 
                         DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
         db.connect();
-        Estimate e = new EstimateMapper().load(1, db);
+        Order e = new OrderMapper().load(1, db);
         assertEquals(1,e.getId());
-        assertEquals(1,e.getType());
-        assertEquals(1000.0,e.getCoast(),0);
-        assertFalse(e.isPaid());
-        assertFalse(e.isFinish());
-        
-        assertEquals(1,e.getWork(0).getId());
-        assertEquals(2,e.getWork(1).getId());       
-        assertEquals("work1",e.getWork(0).getDescription());
-        assertEquals("work2",e.getWork(1).getDescription());       
-        assertEquals(100.0,e.getWork(0).getServiceCoast(),0);
-        assertEquals(1000.0,e.getWork(1).getServiceCoast(),0);
-        assertEquals(1,e.getWork(0).getMasterId());
-        assertEquals(1,e.getWork(1).getMasterId());
-
+        assertEquals(1,e.getClientID());
+        assertEquals(1,e.getManagerID());
+        assertEquals(Order.OPEN,e.getStatus());
+        assertEquals(1000.0,e.getCurrentCoast(),0);
+        SimpleDateFormat ft = new SimpleDateFormat ("dd.MM.yyyy HH:mm:ss");
+        assertEquals("25.04.2016 21:01:02",ft.format(e.getCreate()));
+        assertEquals("25.04.2016 21:01:06",ft.format(e.getLastUpdate()));
+        assertNull(e.getEnd());
+        assertEquals(2, e.getEstimateList().size());
+        assertEquals(1,e.getEstimate(0).getId());
+        assertEquals(2,e.getEstimate(1).getId());
         db.closeConnection();
         db.close();
     }
     
-    @Test
+     @Test
     public void loadAll() throws SQLException {
         DatabaseManager db = new DatabaseManager(
                 "SYSDBA", 
@@ -86,20 +85,21 @@ public class EstimateMapperJUnitTest {
                         "TYPE4", 
                         DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
         db.connect();
-        ArrayList<Estimate> list = new EstimateMapper().loadList(db);
+        ArrayList<Order> list = new OrderMapper().loadList(db);
+        assertEquals(3,list.size());
         
-        int Ids[]={1,1,2,2,3};
-        int OrdIds[]={1,1,1,1,2};
-        int Types[]={1,1,2,2,1};
-        double Coasts[]={1000.0,1000.0,2000.0,2000.0,10000.0};
-        for(int i = 0; i < list.size(); i++){
-            assertEquals(Ids[i],list.get(i).getId());
-            assertEquals(OrdIds[i],list.get(i).getOrderId());
-            assertEquals(Types[i],list.get(i).getType());
-            assertFalse(list.get(i).isPaid());
-            assertEquals(Coasts[i],list.get(i).getCoast(),0);
-            assertFalse(list.get(i).isFinish());
-        }
+        assertEquals(1,list.get(0).getId());
+        assertEquals(1,list.get(0).getClientID());
+        assertEquals(1,list.get(0).getManagerID());
+        
+        assertEquals(2,list.get(1).getId());
+        assertEquals(2,list.get(1).getClientID());
+        assertEquals(1,list.get(1).getManagerID());
+        
+        assertEquals(3,list.get(2).getId());
+        assertEquals(3,list.get(2).getClientID());
+        assertEquals(1,list.get(2).getManagerID());
+        
         db.closeConnection();
         db.close();
     }
@@ -116,30 +116,30 @@ public class EstimateMapperJUnitTest {
                         DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
         db.connect();
         //Временно сохраняем значения из базы.
-        Estimate Oldcl = new EstimateMapper().load(3, db);
+        Order Oldcl = new OrderMapper().load(2, db);
         
-        ArrayList<Work> work = new ArrayList<>();
-        work.add(new WorkMapper().load(1, db));
-        work.get(0).setMasterId(3);
-        Estimate cl = new Estimate(3, 1, false, Estimate.MAIN, 700.0, work);
-        new EstimateMapper().save(cl, db);
+        ArrayList<Estimate> estimatelist = new ArrayList<>();
+        estimatelist.add(new EstimateMapper().load(3, db));
         
-        cl = new EstimateMapper().load(3, db);
+        Order cl = new Order(2, 4,Order.INPROGRESS,3,3,1700.0,0.0,new Date(),new Date(),null,estimatelist);
+        new OrderMapper().save(cl, db);
+        
+        cl = new OrderMapper().load(2, db);
         //проверка что всё записалось.
-        assertEquals(3, cl.getId());
-        assertEquals(1,cl.getOrderId());
-        assertFalse(cl.isPaid());
-        assertEquals(Estimate.MAIN,cl.getType());
-        assertEquals(700.0,cl.getCoast(),0);
+               
+        assertEquals(2, cl.getId());
+        assertEquals(3,cl.getClientID());
+        assertEquals(3,cl.getManagerID());
+        assertEquals(Order.INPROGRESS,cl.getStatus());       
+        assertEquals(1700.0,cl.getCurrentCoast(),0);
         assertFalse(cl.isFinish());
-        assertEquals(3,cl.getWork(0).getMasterId());
-
+        
         //возвращаем обратно старые значения.
-        new EstimateMapper().save(Oldcl, db);
+        new OrderMapper().save(Oldcl, db);
         db.closeConnection();
         db.close();
     }
-    
+
     @Test
     public void InsertAndDelete() throws SQLException{
         DatabaseManager db = new DatabaseManager(
@@ -150,26 +150,19 @@ public class EstimateMapperJUnitTest {
                         DatabaseManager.CharEncoding.UTF8.name(), 
                         "TYPE4", 
                         DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
-        db.connect(); 
+        db.connect();
         
-        ArrayList<Work> worklist = new ArrayList<>();
-        worklist.add(new WorkMapper().load(1, db));
-        worklist.add(new WorkMapper().load(2, db));
-        worklist.get(0).setMasterId(1);
-        worklist.get(1).setMasterId(1);
-        Estimate cl = new Estimate(0, 3, true, Estimate.MAIN, 15000.0, worklist);
-        new EstimateMapper().save(cl, db);
+        ArrayList<Estimate> estimatelist = new ArrayList<>();
+        estimatelist.add(new EstimateMapper().load(2, db));        
+        estimatelist.add(new EstimateMapper().load(3, db));
+        estimatelist.get(0).setId(0);
+        estimatelist.get(1).setId(0);
+        Order cl = new Order(0, 5,Order.INPROGRESS,3,3,1700.0,0.0,new Date(),new Date(),null,estimatelist);
+        new OrderMapper().save(cl, db);
         
-        cl = new EstimateMapper().load(6, db);
-        //проверка что всё записалось.
-        assertEquals("Id",6,cl.getId());
-        assertEquals(3,cl.getOrderId());
-        assertEquals(Estimate.MAIN,cl.getType());
-        assertEquals(15000.0,cl.getCoast(),0);
-
-        
-        new EstimateMapper().delete(6, db);
+        new OrderMapper().delete(4, db);
         db.startTransaction();
+        db.execute("ALTER SEQUENCE ORDER_ID_GENERATOR RESTART WITH 3");
         db.execute("ALTER SEQUENCE ESTIMATE_ID_GENERATOR RESTART WITH 5");
         db.commitTransaction();
         db.closeConnection();

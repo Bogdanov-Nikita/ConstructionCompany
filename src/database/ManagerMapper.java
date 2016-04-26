@@ -35,9 +35,13 @@ public class ManagerMapper extends Mapper <Manager, DatabaseManager>{
                         Database.Manager.id
                 )
         );
-        rs.next();
-        db.commitTransaction();        
-        return new Manager(rs.getString(4).trim(), rs.getInt(1), rs.getString(2).trim(), rs.getString(3).trim());
+        if(rs.next()){
+            db.commitTransaction();        
+            return new Manager(rs.getString(4).trim(), rs.getInt(1), rs.getString(2).trim(), rs.getString(3).trim());
+        }else{
+            db.commitTransaction();
+            return null;
+        }
     }
 
     @Override

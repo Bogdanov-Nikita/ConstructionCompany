@@ -185,7 +185,6 @@ public class WorkMapperJUnitTest {
                         "TYPE4", 
                         DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
         db.connect(); 
-
         
         ArrayList<Resource> res = new ArrayList<>();
         res.add(new Resource(8,200,8,10.8, "new resource 8"));

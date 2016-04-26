@@ -5,18 +5,23 @@
  */
 package constructioncompany;
 import Resources.R;
+import businesslogic.Role;
 import businesslogic.model.BehaviorModel;
+import database.ClientMapper;
 import database.DatabaseManager;
+import database.ManagerMapper;
+import database.MasterMapper;
 import java.awt.Dimension;
 import java.awt.Toolkit;
 import java.awt.event.WindowEvent;
 import java.sql.SQLException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JOptionPane;
+import service.Authorization;
 import service.config.Config;
+import service.config.ConfigDatabase;
+import service.config.ConfigRole;
 import service.config.ConfigXmlParser;
 /**
  *
@@ -24,61 +29,30 @@ import service.config.ConfigXmlParser;
  */
 public class MainFrame extends javax.swing.JFrame {
 
-    int CurrentId = 0;//номер текущего пользователя в списке
+    boolean CONNECTED = false;
+    int index = -1;//номер текушего пользователя в конфигурационном файле
+    int CurrentId = 0;//id текущего пользователя в базе
     Config config;
+    Role CurrentRole;
     BehaviorModel BusinessModel;
+    DatabaseManager DBManager;
     
     /**
      * Creates new form NewJFrame
      */
     public MainFrame() {
         //TODO: 1.порписать кнопочки и прочую часть графики
-        //TODO: 2.прописать аутентификацию и подключение к базе
-        //TODO: 3.Прописать проверку конфига.        
+        //TВыполненно 2.прописать аутентификацию и подключение к базе
+        //Выполненно 3.Прописать проверку конфига.        
         //TODO: 4.написать графическое взаимодействие "адаптеры"
         //Выполненно 5.прописать конфиг и добавить новые поля
         //Выполненно 6.прописать бизнес логику.
         //Выполненно 7.написать тесты.        
         //Выполненно 8.вставить диалог для запоминания перехода.
-        
         initComponents();
         initLocation();
-        initConfig();
-        initDatabase();
-        initBusinessModel();
     }
-    private void initConfig(){
-        /*ConfigXmlParser parser = new ConfigXmlParser();
-        parser.OpenConfig(R.FileName.Config);
-        config = parser.getConfig();*/
-        //получение данных из конфигурационного файла
-        ConfigXmlParser configInfo = new ConfigXmlParser();
-        if(configInfo.OpenConfig("config.txt") == ConfigXmlParser.CONFIG_SUCCESS){            
-        config = configInfo.getConfig();//Прописать аутентификацию и получить нужный элемент номер и проверку ссписка на пустоту.
-            if(config.ItemList.get(1).isValid()){
-                //CONNECTED = true;
-                //подключение к базе данных
-                /*DBManager = new DatabaseManager(
-                        ConfigInfo.getUser(), 
-                        ConfigInfo.getPassword(), 
-                        ConfigInfo.getHost(), 
-                        ConfigInfo.getPath(), 
-                        ConfigInfo.getEncoding(), 
-                        ConfigInfo.getType(), 
-                        DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());*/
-                /*try{
-                    //DBManager.connect();
-                    //setTitle("Connected to: "+ Config.ItemList.get(1).getHost() + " ["+ConfigInfo.getPath()+"]");
-                }catch(SQLException ex){
-                    //CONNECTED = false;
-                    Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, "Can't default connected", ex);
-                    ErrorMassege(ex.toString());
-                }*/
-            }
-        }else{
-            ErrorMassege("Can't find or open config file or file is illegal.\nFor more information see log.");
-        }
-    }
+    
     private void initLocation(){
         Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
         setLocation(dim.width/2-this.getSize().width/2, dim.height/2-this.getSize().height/2);
@@ -87,14 +61,93 @@ public class MainFrame extends javax.swing.JFrame {
         ManagerView.setLocation(dim.width/2-this.getSize().width/2, dim.height/2-this.getSize().height/2);
         AskDialog.setLocation(dim.width/2-this.getSize().width/2, dim.height/2-this.getSize().height/2);
     }
-    private void initDatabase(){
-        //Запуск и проверка коннекта до базы, незадыть вызвать диалог проверки доступа к базе в случае не доступности        
-    }
-    private void initBusinessModel(){
-        BusinessModel = new BehaviorModel();//FIXME: исправить на требуемую модель в данном случае
+    
+    private void initConfig(){
+        //получение данных из конфигурационного файла
+        ConfigXmlParser configInfo = new ConfigXmlParser();
+        if(configInfo.OpenConfig(R.FileName.Config) == ConfigXmlParser.CONFIG_SUCCESS){  
+            config = configInfo.getConfig();           
+        }else{
+            config = null;
+        }
     }
     
-    private void ErrorMassege(String message){
+    private void initAuth(){
+        if(config != null){
+            String role = null;
+            switch(RoleComboBox.getSelectedIndex()+1){
+                case R.ModelType.ManagerModel:
+                    role = R.RoleType.ConfigManager;
+                    break;
+                case R.ModelType.MasterModel:
+                    role = R.RoleType.ConfigMaster;
+                    break;
+                case R.ModelType.ClientModel: 
+                    role = R.RoleType.ConfigClient;
+                    break;
+            }
+            index = Authorization.ConfigRoleAuth(role, LoginTextField.getText(), new String(PasswordFieldText.getPassword()), config);
+        }
+    }
+    
+    private void initDatabase(){
+        if(config != null && index >= 0){
+            //Запуск и проверка коннекта до базы, незадыть вызвать диалог проверки доступа к базе в случае не доступности
+            if(config.getConfigItem(index).isValid()){
+                ConfigDatabase ConfigInfo = config.getConfigItem(index).getDatabase();
+                    CONNECTED = true;
+                    //подключение к базе данных
+                    DBManager = new DatabaseManager(
+                            ConfigInfo.getUser(), 
+                            ConfigInfo.getPassword(), 
+                            ConfigInfo.getHost(), 
+                            ConfigInfo.getPath(), 
+                            ConfigInfo.getEncoding(), 
+                            ConfigInfo.getType(), 
+                            DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
+                    try{
+                        DBManager.connect();
+                    }catch(SQLException ex){
+                        CONNECTED = false;
+                        Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, "Can't connected to database", ex);
+                        ErrorMassage(ex.toString());
+                    }
+            }else{
+                ErrorMassage(R.ErrMsg.ConfigError_2);
+            }
+        }
+    }
+    
+    private void initDatabaseRoleAuth(){        
+        try {
+            CurrentId = Authorization.DatabaseRoleAuth(config.getConfigItem(index).getRole(), DBManager);
+            if(CurrentId > 0){                
+                switch(RoleComboBox.getSelectedIndex()+1){
+                    case R.ModelType.ManagerModel://Менеджер
+                        CurrentRole = new ManagerMapper().load(CurrentId, DBManager);
+                        break;
+                    case R.ModelType.MasterModel://Прораб
+                        CurrentRole = new MasterMapper().load(CurrentId, DBManager);
+                        break;
+                    case R.ModelType.ClientModel://Клиент
+                        CurrentRole = new ClientMapper().load(CurrentId, DBManager);
+                        break;
+                }
+            }else{
+                CurrentRole = null;
+            }
+        } catch (SQLException ex) {
+            CurrentRole = null;
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+            ErrorMassage(ex.toString());
+        }
+    }
+
+    private void initBusinessModel(){
+        BusinessModel = new BehaviorModel(RoleComboBox.getSelectedIndex()+1, CurrentRole);       
+    }
+    
+    private void ErrorMassage(String message){
         String Title = "Ошибка";
         JOptionPane.showConfirmDialog(null, message, Title, JOptionPane.DEFAULT_OPTION, JOptionPane.ERROR_MESSAGE, null);
     }
@@ -104,7 +157,7 @@ public class MainFrame extends javax.swing.JFrame {
      * WARNING: Do NOT modify this code. The content of this method is always
      * regenerated by the Form Editor.
      */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("Convert2Lambda")//генерируемый код так что можно и отключить предупреждение
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
@@ -122,7 +175,7 @@ public class MainFrame extends javax.swing.JFrame {
         AskCheckBox = new javax.swing.JCheckBox();
         OkButton = new javax.swing.JButton();
         CanselButton = new javax.swing.JButton();
-        jPasswordField1 = new javax.swing.JPasswordField();
+        PasswordFieldText = new javax.swing.JPasswordField();
         RoleComboBox = new javax.swing.JComboBox();
         jLabel1 = new javax.swing.JLabel();
         jLabel2 = new javax.swing.JLabel();
@@ -211,9 +264,13 @@ public class MainFrame extends javax.swing.JFrame {
         );
 
         AskDialog.setTitle("Выход?");
-        AskDialog.setMinimumSize(new java.awt.Dimension(355, 145));
+        AskDialog.setMinimumSize(new java.awt.Dimension(365, 145));
         AskDialog.setModal(true);
-        AskDialog.setPreferredSize(new java.awt.Dimension(355, 140));
+        AskDialog.addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosing(java.awt.event.WindowEvent evt) {
+                AskDialogWindowClosing(evt);
+            }
+        });
 
         jLabel4.setText("Выйти из программы или вернутся к окну аутентификации?");
 
@@ -322,7 +379,7 @@ public class MainFrame extends javax.swing.JFrame {
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(jLabel3)
                         .addGap(18, 18, 18)
-                        .addComponent(jPasswordField1))
+                        .addComponent(PasswordFieldText))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addGap(0, 0, Short.MAX_VALUE)
                         .addComponent(OkButton, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -344,7 +401,7 @@ public class MainFrame extends javax.swing.JFrame {
                 .addGap(18, 18, 18)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel3)
-                    .addComponent(jPasswordField1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(PasswordFieldText, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(CanselButton)
@@ -356,27 +413,65 @@ public class MainFrame extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void OkButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkButtonActionPerformed
-        //Запуск окна для конкретной роли.
-        //проверка соответствия роли логиа и пароля
-        
-        setVisible(false);
-        switch(RoleComboBox.getSelectedIndex()+1){
-            case R.ModelType.ManagerModel://Менеджер
-                ManagerView.setTitle(R.RoleType.Manager +
-                        " " + LoginTextField.getText());
-                ManagerView.setVisible(true);
-                break;
-            case R.ModelType.MasterModel://Прораб
-                MasterView.setTitle(R.RoleType.Master +
-                        " " + LoginTextField.getText());
-                MasterView.setVisible(true);
-                break;
-            case R.ModelType.ClientModel://Клиент
-                ClientView.setTitle(R.RoleType.Client +
-                        " " + LoginTextField.getText());
-                ClientView.setVisible(true);
-                break;      
-        }
+        //Проверка Авторизации и запуск окна для конкретной роли.
+        initConfig();
+        //проверка на загрузку конфига конфиг != null
+        if(config != null){
+            initAuth();
+            //проверка соответствия роли логиа и пароля код индекса >= 0
+            if(index >= 0){
+                initDatabase();
+                //проверка подключения базы CONECTED = true
+                if(CONNECTED){
+                    initDatabaseRoleAuth();
+                    //проверка для роли внутри базы.
+                    if(CurrentId > 0 && CurrentRole != null){
+                        initBusinessModel();                    
+                        setVisible(false);
+                        ConfigRole RoleInfo = config.getConfigItem(index).getRole();
+                        ConfigDatabase ConfigInfo = config.getConfigItem(index).getDatabase();
+                        switch(RoleComboBox.getSelectedIndex()+1){
+                            case R.ModelType.ManagerModel://Менеджер
+                                ManagerView.setTitle(
+                                        R.RoleType.Manager + " : " + RoleInfo.getLogin() + " - " +
+                                        "Connected to: "+ ConfigInfo.getHost() + " ["+ConfigInfo.getPath()+"]");
+                                ManagerView.setVisible(true);
+                                break;
+                            case R.ModelType.MasterModel://Прораб
+                                MasterView.setTitle(
+                                        R.RoleType.Master + " : " + RoleInfo.getLogin() + " - " +
+                                        "Connected to: "+ ConfigInfo.getHost() + " ["+ConfigInfo.getPath()+"]");
+                                MasterView.setVisible(true);
+                                break;
+                            case R.ModelType.ClientModel://Клиент
+                                ClientView.setTitle(
+                                        R.RoleType.Client + " : " + RoleInfo.getLogin() + " - " +
+                                        "Connected to: "+ ConfigInfo.getHost() + " ["+ConfigInfo.getPath()+"]");
+                                ClientView.setVisible(true);
+                                break;
+                        }
+                    }else{//отсутствие роли в базе данных.
+                        ErrorMassage(R.ErrMsg.AuthDatabaseError);
+                    }
+                }else{//ошибка подключения к базе данных
+                    ErrorMassage(R.ErrMsg.DatabaseError);
+                }
+            }else{//ошибка соответствия логина и пароля
+                switch(index){
+                    case Authorization.NOT_FOUND:
+                        ErrorMassage(R.ErrMsg.AuthError_1);
+                        break;
+                    case Authorization.ROLE_NOT_COMPARE_LOGIN:
+                        ErrorMassage(R.ErrMsg.AuthError_2);
+                        break;
+                    case Authorization.NOT_CORRECT_PASSWORD:
+                        ErrorMassage(R.ErrMsg.AuthError_3);
+                        break;
+                }
+            }
+        }else{//ошибка поиска конфигурационного файла
+            ErrorMassage(R.ErrMsg.ConfigError_1);
+        }        
     }//GEN-LAST:event_OkButtonActionPerformed
 
     private void CanselButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_CanselButtonActionPerformed
@@ -389,9 +484,9 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void RoleComboBoxMouseWheelMoved(java.awt.event.MouseWheelEvent evt) {//GEN-FIRST:event_RoleComboBoxMouseWheelMoved
         //Прокрутка вариантов мышью
-        int index = RoleComboBox.getSelectedIndex() + evt.getWheelRotation();        
-        if(index > -1 && index < RoleComboBox.getItemCount()){
-            RoleComboBox.setSelectedIndex(index);
+        int i = RoleComboBox.getSelectedIndex() + evt.getWheelRotation();        
+        if(i > -1 && i < RoleComboBox.getItemCount()){
+            RoleComboBox.setSelectedIndex(i);
         }
     }//GEN-LAST:event_RoleComboBoxMouseWheelMoved
 
@@ -406,9 +501,11 @@ public class MainFrame extends javax.swing.JFrame {
     private void NotExitButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_NotExitButtonActionPerformed
         //переход к окну с аутентификацикей
         if(AskCheckBox.isSelected()){
-            config.ItemList.get(CurrentId).getSettings().setAskDialog(false);
-            config.ItemList.get(CurrentId).getSettings().setExitOperation(false);
+            config.getConfigItem(index).getSettings().setAskDialog(false);
+            config.getConfigItem(index).getSettings().setExitOperation(false);
         }
+        //Сохранение конфигурации
+        config.writetoFile(R.FileName.Config);
         AskDialog.setVisible(false);
         setVisible(true);
     }//GEN-LAST:event_NotExitButtonActionPerformed
@@ -416,22 +513,32 @@ public class MainFrame extends javax.swing.JFrame {
     private void ExitButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ExitButtonActionPerformed
         // выход
         if(AskCheckBox.isSelected()){
-            config.ItemList.get(CurrentId).getSettings().setAskDialog(false);
-            config.ItemList.get(CurrentId).getSettings().setExitOperation(true);
+            config.getConfigItem(index).getSettings().setAskDialog(false);
+            config.getConfigItem(index).getSettings().setExitOperation(true);
         }
         AskDialog.setVisible(false);
         dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));//закрыть приложение
     }//GEN-LAST:event_ExitButtonActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
-        // TODO сохранение конфигурации
-        //System.out.println("Frame Closing");
-        
+        //Сохранение конфигурации
+        config.writetoFile(R.FileName.Config);
     }//GEN-LAST:event_formWindowClosing
 
+    private void AskDialogWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_AskDialogWindowClosing
+        AskDialog.setVisible(false);
+        dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));//закрыть приложение
+    }//GEN-LAST:event_AskDialogWindowClosing
+
     private void RoleViewWindowClosing(java.awt.event.WindowEvent evt,int RoleType){
-        //Закрытие окна роли: менеджера,прораба,клиента        
-                
+        //Закрытие текущего соединения
+        try {
+            DBManager.closeConnection();
+        } catch (SQLException ex) {
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, "Can't close database connection", ex);
+        }
+        DBManager.close();
+        //Закрытие окна роли (менеджера,прораба,клиента)
         switch(RoleType){
             case R.ModelType.ManagerModel:
                 ManagerView.setVisible(false);
@@ -443,10 +550,10 @@ public class MainFrame extends javax.swing.JFrame {
                 MasterView.setVisible(false);
                 break;
         }
-        if(config.ItemList.get(CurrentId).getSettings().isAskDialog()){//покывает диалог с вопросом
+        if(config.getConfigItem(index).getSettings().isAskDialog()){//покывает диалог с вопросом
             AskDialog.setVisible(true);
         }else{
-            if(config.ItemList.get(CurrentId).getSettings().isExitOperation()){
+            if(config.getConfigItem(index).getSettings().isExitOperation()){
                 //выход
                 this.dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));//закрыть приложение
             }else{
@@ -472,19 +579,11 @@ public class MainFrame extends javax.swing.JFrame {
                     break;
                 }
             }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(MainFrame.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(MainFrame.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(MainFrame.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
             java.util.logging.Logger.getLogger(MainFrame.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
         //</editor-fold>
         //</editor-fold>
-        //SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss.S");
-        //System.out.println("date: " + dateFormat.format( new Date(System.currentTimeMillis())));
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(() -> {
             new MainFrame().setVisible(true);
@@ -502,6 +601,7 @@ public class MainFrame extends javax.swing.JFrame {
     private javax.swing.JFrame MasterView;
     private javax.swing.JButton NotExitButton;
     private javax.swing.JButton OkButton;
+    private javax.swing.JPasswordField PasswordFieldText;
     private javax.swing.JComboBox RoleComboBox;
     private javax.swing.JButton jButton1;
     private javax.swing.JCheckBox jCheckBox1;
@@ -509,7 +609,6 @@ public class MainFrame extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
-    private javax.swing.JPasswordField jPasswordField1;
     private javax.swing.JRadioButton jRadioButton1;
     private javax.swing.JRadioButton jRadioButton2;
     // End of variables declaration//GEN-END:variables

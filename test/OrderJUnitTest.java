@@ -111,7 +111,7 @@ public class OrderJUnitTest {
     
     @Test
     public void test3() {
-        Order ord = new Order(12345,Order.OPEN, 41, 45, 0, 0, null, null, null, null);
+        Order ord = new Order(0,12345,Order.OPEN, 41, 45, 0, 0, null, null, null, null);
         assertFalse(ord.setCurrentCoast(-100));
         assertEquals(0,ord.getCurrentCoast(),0);
         assertEquals(0,ord.CoastCalculation(),0);

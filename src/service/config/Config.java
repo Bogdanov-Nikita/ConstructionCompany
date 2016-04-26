@@ -24,13 +24,17 @@ public class Config {
         ItemList = new ArrayList<>();
     }
     
-    ConfigItem findbyLogin(String login){
-        for (ConfigItem ItemList1 : ItemList) {
-            if (ItemList1.getRole().getLogin().compareTo(login) == 0) {
-                return ItemList1;
+    public ConfigItem getConfigItem(int index){
+        return ItemList.get(index);
+    }
+    
+    public int findbyLogin(String login){
+        for (int i = 0; i < ItemList.size(); i++) {
+            if (ItemList.get(i).getRole().getLogin().compareTo(login) == 0) {
+                return i;
             }
         }
-        return null;
+        return -1;
     }
     
     public void writetoFile(String FileName){
