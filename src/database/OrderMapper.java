@@ -5,6 +5,7 @@
  */
 package database;
 
+import businesslogic.Client;
 import businesslogic.Estimate;
 import businesslogic.Order;
 import java.sql.ResultSet;
@@ -120,6 +121,60 @@ public class OrderMapper extends Mapper<Order, DatabaseManager>{
         return list;
     }
 
+    public ArrayList<Order> loadListbyClient(int ClientId,DatabaseManager db) throws SQLException {        
+        ArrayList<Integer> IdList = new ArrayList<>();
+        db.startTransaction();
+        String columns[] = {
+            Database.Order.id  
+        };
+        ResultSet rs = db.executeQuery(
+                QueryBilder.select(
+                        Database.Order.Table,
+                        columns,
+                        "\"" + Database.Order.client_id + "\"=?",
+                        new String[]{String.valueOf(ClientId)},
+                        null,
+                        Database.Order.id
+                )
+        );        
+        while(rs.next()){
+            IdList.add(rs.getInt(1));
+        }
+        db.commitTransaction();        
+        ArrayList<Order> list = new ArrayList<>();
+        //возможно стоит заменить на более легковесный.
+        for (Integer IdList1 : IdList) {
+            list.add(load(IdList1, db));
+        }
+        return list;
+    }    
+    
+    public Client loadClientByOrderId(int Id,DatabaseManager db) throws SQLException {
+        db.startTransaction();
+        String columns[] = {
+            Database.Order.id,
+            Database.Order.client_id    
+        };
+        ResultSet rs = db.executeQuery(
+                QueryBilder.select(
+                        Database.Order.Table,
+                        columns,
+                        "\"" + Database.Order.id + "\"=?",
+                        new String[]{String.valueOf(Id)},
+                        null,
+                        Database.Order.id
+                )
+        );
+        if(rs.next()){
+            int ClientId = rs.getInt(2);
+            db.commitTransaction();
+            return new ClientMapper().load(ClientId,db);
+        }else{
+            db.commitTransaction();
+            return null;
+        }
+    }
+    
     @Override
     public boolean save(Order e, DatabaseManager db) throws SQLException {
         boolean flag;

@@ -205,6 +205,10 @@ public class Order {//Прописать определение CurrentCoast с�
     public double getCurrentCoast() {
         return CurrentCoast;
     }
+
+    public double getTotalCoast() {
+        return TotalCoast;
+    }
     
     public boolean isFinish(){
         return EstimateList.stream().noneMatch((Estimate1) -> (!Estimate1.isFinish()));

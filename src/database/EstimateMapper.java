@@ -98,6 +98,35 @@ public class EstimateMapper extends Mapper<Estimate, DatabaseManager>{
         return list;
     }
 
+    
+    public ArrayList<Estimate> loadListbyMaster(int MasterId,DatabaseManager db) throws SQLException {
+        ArrayList<Integer> IdList = new ArrayList<>();
+        db.startTransaction();
+        String columns[] = {
+            Database.EstimateView.id,//1
+        };
+        ResultSet rs = db.executeQuery(
+                QueryBilder.select(
+                        Database.EstimateView.View,
+                        columns,
+                        "\"" + Database.EstimateView.master_id + "\"=?",
+                        new String[]{String.valueOf(MasterId)},
+                        null,
+                        Database.EstimateView.order_id+ "\",\"" + Database.EstimateView.work_id
+                )
+        );        
+        while(rs.next()){
+            IdList.add(rs.getInt(1));
+        }
+        db.commitTransaction();        
+        ArrayList<Estimate> list = new ArrayList<>();
+        //возможно стоит заменить на более легковесный.
+        for (Integer IdList1 : IdList) {
+            list.add(load(IdList1, db));
+        }
+        return list;
+    }
+    
     @Override
     public boolean save(Estimate e,DatabaseManager db) throws SQLException {
         boolean flag;
