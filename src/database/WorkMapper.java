@@ -196,7 +196,7 @@ public class WorkMapper extends Mapper<Work, DatabaseManager>{
         clearWorkResources(id, db);
         db.startTransaction();
         ContentValues value = new ContentValues();
-        value.put("\"" + Database.Work.Table + "\".\"" + Database.Work.id +"\"", String.valueOf(id));
+        value.put("\"" + Database.Work.Table + "\".\"" + Database.Work.id + "\"", String.valueOf(id));
         db.execute(QueryBilder.delete(Database.Work.Table, value));
         db.commitTransaction();
     }
@@ -204,7 +204,16 @@ public class WorkMapper extends Mapper<Work, DatabaseManager>{
     public void clearWorkResources(int id,DatabaseManager db) throws SQLException{
         db.startTransaction();
         ContentValues value = new ContentValues();
-        value.put("\"" + Database.WorksAndResource.Table + "\".\"" + Database.WorksAndResource.work_id +"\"", String.valueOf(id));
+        value.put("\"" + Database.WorksAndResource.Table + "\".\"" + Database.WorksAndResource.work_id + "\"", String.valueOf(id));
+        db.execute(QueryBilder.delete(Database.WorksAndResource.Table, value));
+        db.commitTransaction();
+    }
+    
+    public void clearWorkResource(int WorkId,int ResourceId,DatabaseManager db) throws SQLException{
+        db.startTransaction();
+        ContentValues value = new ContentValues();
+        value.put("\"" + Database.WorksAndResource.Table + "\".\"" + Database.WorksAndResource.work_id + "\"", String.valueOf(WorkId));
+        value.put("\"" + Database.WorksAndResource.Table + "\".\"" + Database.WorksAndResource.resource_id + "\"", String.valueOf(ResourceId));
         db.execute(QueryBilder.delete(Database.WorksAndResource.Table, value));
         db.commitTransaction();
     }

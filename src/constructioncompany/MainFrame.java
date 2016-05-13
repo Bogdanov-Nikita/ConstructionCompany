@@ -10,20 +10,27 @@ import businesslogic.Estimate;
 import businesslogic.Manager;
 import businesslogic.Master;
 import businesslogic.Order;
+import businesslogic.Resource;
 import businesslogic.Role;
-import businesslogic.model.BehaviorModel;
+import businesslogic.Storage;
+import businesslogic.Work;
 import database.ClientMapper;
 import database.DatabaseManager;
 import database.EstimateMapper;
 import database.ManagerMapper;
 import database.MasterMapper;
 import database.OrderMapper;
+import database.ResourceMapper;
+import database.StorageMapper;
+import database.WorkMapper;
 import java.awt.Dimension;
 import java.awt.Toolkit;
 import java.awt.event.WindowEvent;
 import java.sql.SQLException;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JOptionPane;
@@ -39,46 +46,70 @@ import service.config.ConfigXmlParser;
  */
 public class MainFrame extends javax.swing.JFrame {
 
-    boolean CONNECTED = false;
-    int index = -1;//номер текушего пользователя в конфигурационном файле
-    int CurrentId = 0;//id текущего пользователя в базе
-    Config config;
-    Role CurrentRole;
-    BehaviorModel BusinessModel;
-    DatabaseManager DBManager;
+    boolean Master = false;         //Выбор для обобщенного диалога добавления/редактирования для какой роли  Master - true , Client - false.
+    int DialogAction = 0;           //Действие диалогового окна добавить/редактировать для Склада отправить/получиить 
+    boolean CONNECTED = false;      //Флаг подключения к базе данных
+    boolean UPDATED = false;        //Флаг обновлениея данных
+    int index = -1;                 //номер текушего пользователя в конфигурационном файле
+    int CurrentId = 0;              //id текущего пользователя в базе
+    Config config;                  //Конфигурационный файл содержит пароли и доступ к базе
+    Role CurrentRole;               //Роль текщего пользователя системы
+    DatabaseManager DBManager;      //Управление базой данных
+    SimpleDateFormat DateFormat;    //Формат времени и даты
     
-    ArrayList<Order> ClientOrderList;
-    ArrayList<Estimate> MasterEstimateList;
-    
-    SimpleDateFormat DateFormat;
+    //Для роли менеджера
+    ArrayList<Order> ManagerOrderList;          //Список заказов
+    ArrayList<Work> ManagerWorkList;            //Список работ
+    ArrayList<Resource> ManagerResourceList;    //Список ресурсов
+    ArrayList<Storage> ManagerStorageList;      //Список Складов
+    ArrayList<Master> ManagerMasterList;        //Список прорабов
+    ArrayList<Client> ManagerClientList;        //Список клиентов данного менеджера
+    ArrayList<Work> TempEstimateWorkList;       //Веременный список смет
+    //Для роли мастера
+    ArrayList<Estimate> MasterEstimateList;     //Список Смет для получения списка работ для данного мастера
+    //Для роли клиента
+    ArrayList<Order> ClientOrderList;           //Список заказов данного клиента
     
     /**
-     * Creates new form NewJFrame
+     * Инициализация диалогового окна
      */
     public MainFrame() {
-        
-        //TODO: 1.порписать кнопочки и прочую часть графики
-        //TВыполненно 2.прописать аутентификацию и подключение к базе
+        //TODO прописать въюшку админа, окно для паролей
+        //TODO добавить позицию распределения ресурсов
+        //Выполненно прописать диалоги для добавления элементов: заказов, смет, работ, складов, ресурсов 
+        //Выполненно 1.порписать кнопочки и прочую часть графики
+        //Выполненно 2.прописать аутентификацию и подключение к базе
         //Выполненно 3.Прописать проверку конфига.
         //Выполненно 5.прописать конфиг и добавить новые поля
         //Выполненно 6.прописать бизнес логику.
         //Выполненно 7.написать тесты.        
         //Выполненно 8.вставить диалог для запоминания перехода.
-        DateFormat = new SimpleDateFormat ("dd.MM.yyyy HH:mm:ss");
+        DateFormat = new SimpleDateFormat (R.DataFormat);
+        ManagerOrderList = null;
+        ManagerWorkList = null;        
+        ManagerResourceList = null;
+        ManagerStorageList = null;
+        ManagerClientList = null;
+        ManagerMasterList = null;
         ClientOrderList = null;
         MasterEstimateList = null;
+        TempEstimateWorkList = null;
         initComponents();
         initLocation();
     }
     
     private void initLocation(){
         Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
-        setLocation(dim.width/2-this.getSize().width/2, dim.height/2-this.getSize().height/2);
-        ClientView.setLocation(dim.width/2-ClientView.getSize().width/2, dim.height/2-ClientView.getSize().height/2);
-        MasterView.setLocation(dim.width/2-MasterView.getSize().width/2, dim.height/2-MasterView.getSize().height/2);
-        ManagerView.setLocation(dim.width/2-ManagerView.getSize().width/2, dim.height/2-ManagerView.getSize().height/2);
-        AskDialog.setLocation(dim.width/2-AskDialog.getSize().width/2, dim.height/2-AskDialog.getSize().height/2);
-        ViewOrderDialog.setLocation(dim.width/2-ViewOrderDialog.getSize().width/2, dim.height/2-ViewOrderDialog.getSize().height/2);
+        java.awt.Window Windows[] = {
+            this,
+            ClientView,MasterView,ManagerView,
+            AskDialog,ViewOrderDialog,TakeSendResourceDialog,
+            AddEstimateWorkDialog,AddEditClientMasterDialog,AddEditEstimateDialog,
+            AddEditResourceDialog,AddEditStorageDialog,AddEditWorkDialog,AddOrderDialog
+        };
+        for(java.awt.Window elem:Windows){
+            elem.setLocation(dim.width/2-elem.getSize().width/2, dim.height/2-elem.getSize().height/2);
+        }
     }
     
     private void initConfig(){
@@ -126,7 +157,7 @@ public class MainFrame extends javax.swing.JFrame {
                             DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
                     try{
                         DBManager.connect();
-                    }catch(SQLException ex){
+                    }catch(SQLException|NullPointerException ex){
                         CONNECTED = false;
                         Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, "Can't connected to database", ex);
                         ErrorMassage(ex.toString());
@@ -161,9 +192,288 @@ public class MainFrame extends javax.swing.JFrame {
             ErrorMassage(ex.toString());
         }
     }
-
-    private void initBusinessModel(){
-        BusinessModel = new BehaviorModel(RoleComboBox.getSelectedIndex()+1, CurrentRole);       
+    
+    private void initRoleViewBlock(){
+        ConfigRole RoleInfo = config.getConfigItem(index).getRole();
+        ConfigDatabase ConfigInfo = config.getConfigItem(index).getDatabase();
+        switch(RoleComboBox.getSelectedIndex()+1){
+            case R.ModelType.ManagerModel://Менеджер
+                ManagerView.setTitle(
+                        R.RoleType.Manager + " : " + RoleInfo.getLogin() + " - " +
+                        "Connected to: "+ ConfigInfo.getHost() + " ["+ConfigInfo.getPath()+"]");
+                ManagerView.setVisible(true);
+                //Вкладка профиль
+                ManagerNameTextField.setText(CurrentRole.getName());
+                ManagerPhoneTextField.setText(CurrentRole.getPhoneNumber());
+                ManagerAddressTextField.setText(((Manager)CurrentRole).getOfficeAddress());                               
+                initManagerViewModel();
+                break;
+            case R.ModelType.MasterModel://Прораб
+                MasterView.setTitle(
+                        R.RoleType.Master + " : " + RoleInfo.getLogin() + " - " +
+                        "Connected to: "+ ConfigInfo.getHost() + " ["+ConfigInfo.getPath()+"]");
+                MasterView.setVisible(true);
+                //Вкладка профиль
+                MasterNameTextField.setText(CurrentRole.getName());
+                MasterPhoneTextField.setText(CurrentRole.getPhoneNumber());
+                initMasterViewModel();
+                break;
+            case R.ModelType.ClientModel://Клиент
+                ClientView.setTitle(
+                        R.RoleType.Client + " : " + RoleInfo.getLogin() + " - " +
+                        "Connected to: "+ ConfigInfo.getHost() + " ["+ConfigInfo.getPath()+"]");
+                ClientView.setVisible(true);
+                //Вкладка профиль
+                ClientNameTextField.setText(CurrentRole.getName());
+                ClientPhoneTextField.setText(CurrentRole.getPhoneNumber());
+                ClientAddressTextField.setText(((Client)CurrentRole).getAddres());
+                ClientTypeLabel.setText( R.Client.CLIENT_TYPE + " " + 
+                        R.Client.ClientTypeName(((Client)CurrentRole).getType()));
+                initClientViewModel();
+                break;
+        }
+    }
+    
+    private void initManagerViewModel(){
+        //Вкладка заказов.
+        try {
+            ManagerOrderList = new OrderMapper().loadListbyManager(CurrentId, DBManager);
+            javax.swing.table.DefaultTableModel ManagerOrderTableModel = 
+                    (javax.swing.table.DefaultTableModel)ManagerOrderTable.getModel();
+            ManagerOrderList.stream().forEach((list1) -> {
+                ManagerOrderTableModel.addRow(new Object[]{
+                    String.valueOf(list1.getNumber()),
+                    R.Order.StatusName(list1.getStatus()), 
+                    String.valueOf(list1.getCurrentCoast()), 
+                    DateFormat.format(list1.getCreate()), 
+                    DateFormat.format(list1.getLastUpdate()),
+                    (list1.getEnd()!= null) ? DateFormat.format(list1.getEnd()):""});
+                list1.CoastCalculation();
+            });                                    
+            ManagerOrderTable.getSelectionModel().addListSelectionListener((ListSelectionEvent event) -> {
+                int SelectedRow = ManagerOrderTable.getSelectedRow();
+                if(SelectedRow >= 0){
+                    switch(ManagerOrderList.get(SelectedRow).getStatus()){
+                        case Order.OPEN:
+                            ChangeStatusOrderButton.setText("Изменить статус на: " + R.Order.StatusName(Order.INPROGRESS));
+                            ChangeStatusOrderButton.setEnabled(true);
+                        break;
+                        case Order.WAITING_ACKNOWLEDGMENT_PAY:
+                            ChangeStatusOrderButton.setText("Изменить статус на: " + R.Order.StatusName(Order.CLOSE));
+                            ChangeStatusOrderButton.setEnabled(true);
+                        break;
+                        default:
+                            ChangeStatusOrderButton.setText("Изменить статус");
+                            ChangeStatusOrderButton.setEnabled(false);
+                            break;
+                    }
+                    
+                    
+                    javax.swing.table.DefaultTableModel m = (javax.swing.table.DefaultTableModel)ManagerEstimateTable.getModel();
+                    while(m.getRowCount() > 0){m.removeRow(0);}
+                    ManagerOrderList.get(SelectedRow).getEstimateList().stream().forEach((Elist1) -> {
+                        m.addRow(new Object[]{
+                                    R.Estimate.TypeName(Elist1.getType()), 
+                                    R.Estimate.StatusName(Elist1.isPaid(), Elist1.isFinish()),
+                                    String.valueOf(Elist1.getCoast())
+                                }
+                        );
+                    });
+                }
+            });
+        } catch (SQLException ex) {
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        //Вкладка работ.
+        try {
+            ManagerWorkList = new WorkMapper().loadList(DBManager);
+            javax.swing.table.DefaultTableModel ManagerWorkTableModel = 
+                    (javax.swing.table.DefaultTableModel) ManagerWorkTable.getModel();
+            ManagerWorkList.stream().forEach((Work1) -> {
+                ManagerWorkTableModel.addRow(new Object[]{
+                    Work1.getDescription(),
+                    Work1.getServiceCoast(),
+                    Work1.CoastCalculation()
+                });
+            });
+            ManagerWorkTable.getSelectionModel().addListSelectionListener((ListSelectionEvent event) -> {
+                int SelectedRow = ManagerWorkTable.getSelectedRow();
+                if(SelectedRow >= 0){
+                    javax.swing.table.DefaultTableModel m = 
+                    (javax.swing.table.DefaultTableModel)ManagerWorkResourceTable.getModel();
+                    while(m.getRowCount() > 0){m.removeRow(0);}
+                    ManagerWorkList.get(SelectedRow).getResources().stream().forEach((Res1) -> {                                                
+                        m.addRow(new Object[]{
+                                    Res1.getName(),
+                                    String.valueOf(Res1.getAmount()),
+                                    String.valueOf(Res1.getCoast()),
+                                    String.valueOf(Res1.getType())
+                                }
+                        );
+                    });
+                }
+            });
+        } catch (SQLException ex) {
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        //Вкладка Ресурсы.                             
+        try {
+            ManagerResourceList = new ResourceMapper().loadList(DBManager);
+            javax.swing.table.DefaultTableModel ManagerStorageTableModel = 
+                    (javax.swing.table.DefaultTableModel)ManagerResourceTable.getModel();
+            ManagerResourceList.stream().forEach((Res1) -> {
+                ManagerStorageTableModel.addRow(new Object[]{
+                    Res1.getName(),
+                    String.valueOf(Res1.getCoast()),
+                    String.valueOf(Res1.getType())
+                });
+            });
+        } catch (SQLException ex) {
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+        }     
+        //Вкладка Склад.
+        try {
+            ManagerStorageList = new StorageMapper().loadList(DBManager);
+            javax.swing.table.DefaultTableModel ManagerStorageTableModel = 
+                    (javax.swing.table.DefaultTableModel)ManagerStorageTable.getModel();
+            ManagerStorageList.stream().forEach((Storege1) -> {
+                ManagerStorageTableModel.addRow(new Object[]{Storege1.getLocation()});
+            });
+            ManagerStorageTable.getSelectionModel().addListSelectionListener((ListSelectionEvent event) -> {
+                int SelectedRow = ManagerStorageTable.getSelectedRow();
+                if(SelectedRow >= 0){
+                    javax.swing.table.DefaultTableModel m = 
+                    (javax.swing.table.DefaultTableModel)ManagerStorageResourceTable.getModel();
+                    while(m.getRowCount() > 0){m.removeRow(0);}
+                    ManagerStorageList.get(SelectedRow).getResources().stream().forEach((Res1) -> {                                                
+                        m.addRow(new Object[]{
+                                    Res1.getName(),
+                                    String.valueOf(Res1.getAmount()),
+                                    String.valueOf(Res1.getCoast()),
+                                    String.valueOf(Res1.getType())
+                                }
+                        );
+                    });
+                }
+            });
+        } catch (SQLException ex) {
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        //Вкладка заказчики                                                        
+        try {
+            javax.swing.table.DefaultTableModel ManagerClientTableModel = 
+                    (javax.swing.table.DefaultTableModel)ManagerClientTable.getModel();
+            ManagerClientList = new ClientMapper().loadList(DBManager);
+            ManagerClientList.stream().forEach((Client1) -> {
+                ManagerClientTableModel.addRow(new Object[]{
+                    Client1.getName(),
+                    Client1.getPhoneNumber(),
+                    Client1.getAddres(),
+                    R.Client.ClientTypeName(Client1.getType())
+                });
+            });
+        } catch (SQLException ex) {
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        //Вкладка прорабы
+        try {
+            javax.swing.table.DefaultTableModel ManagerMasterTableModel = 
+                    (javax.swing.table.DefaultTableModel)ManagerMasterTable.getModel();
+            ManagerMasterList = new MasterMapper().loadList(DBManager);
+            ManagerMasterList.stream().forEach((Master1) -> {
+                ManagerMasterTableModel.addRow(new Object[]{
+                    Master1.getName(),
+                    Master1.getPhoneNumber()
+                });
+            });
+        } catch (SQLException ex) {
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+            ErrorMassage(ex.toString());
+        }
+    }
+    
+    private void initMasterViewModel(){
+        javax.swing.table.DefaultTableModel MasterWorksTableModel = 
+                                        (javax.swing.table.DefaultTableModel)MasterWorksTable.getModel();                     
+        try {
+            MasterEstimateList = new EstimateMapper().loadListbyMaster(CurrentId, DBManager);
+            for (Estimate MasterEstimateList1 : MasterEstimateList) {
+                Client cl = new OrderMapper().loadClientByOrderId(MasterEstimateList1.getOrderId(), DBManager);
+                MasterEstimateList1.getWorkList().stream().forEach((work1) -> {
+                    MasterWorksTableModel.addRow(new Object[]{
+                        work1.getDescription(),
+                        R.Work.StatusName(work1.isFinish()),
+                        String.valueOf(work1.getServiceCoast()),
+                        String.valueOf(work1.CoastCalculation()),
+                        cl.getName(),
+                        cl.getPhoneNumber(),
+                        cl.getAddres()}
+                    );  });
+            }
+            MasterWorksTable.getSelectionModel().addListSelectionListener((ListSelectionEvent event) -> {
+                if(MasterWorksTable.getSelectedRow() >= 0){
+                    int WorkIndex = MasterWorksTable.getSelectedRow();
+                    int EstimateIndex = 0;
+                    for (Estimate es : MasterEstimateList) {
+                        int size = es.getWorkList().size();
+                        if(WorkIndex >= size){
+                            EstimateIndex++;
+                            WorkIndex = WorkIndex - size;
+                        }else{
+                            break;
+                        }
+                    }
+                    MasterFinishWorkButton.setEnabled(
+                            !MasterEstimateList
+                                    .get(EstimateIndex)
+                                    .getWork(WorkIndex)
+                                    .isFinish()
+                    );
+                }
+            });
+        } catch (SQLException ex) {
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+            ErrorMassage(ex.toString());
+        }
+    }
+    
+    private void initClientViewModel(){
+        try {
+            ClientOrderList = new OrderMapper().loadListbyClient(CurrentId, DBManager);
+            javax.swing.table.DefaultTableModel ClientOrderTableModel = 
+                    (javax.swing.table.DefaultTableModel)ClientOrderTable.getModel();
+            ClientOrderList.stream().forEach((list1) -> {
+                ClientOrderTableModel.addRow(new Object[]{
+                    String.valueOf(list1.getNumber()),
+                    R.Order.StatusName(list1.getStatus()), 
+                    String.valueOf(list1.getCurrentCoast()), 
+                    DateFormat.format(list1.getCreate()), 
+                    DateFormat.format(list1.getLastUpdate()),
+                    (list1.getEnd()!= null) ? DateFormat.format(list1.getEnd()):""});
+                list1.CoastCalculation();
+            });                                    
+            ClientOrderTable.getSelectionModel().addListSelectionListener((ListSelectionEvent event) -> {
+                if(ClientOrderTable.getSelectedRow() >= 0){
+                    switch(ClientOrderList.get(ClientOrderTable.getSelectedRow()).getStatus()){
+                        case Order.WAITING_PAY:
+                            ClientAcceptWorkButton.setEnabled(false);
+                            ClientPayButton.setEnabled(true);
+                            break;
+                        case Order.WAITING_ACKNOWLEDGMENT_TAKE:
+                            ClientAcceptWorkButton.setEnabled(true);
+                            ClientPayButton.setEnabled(false);
+                            break;
+                        default:
+                            ClientAcceptWorkButton.setEnabled(false);
+                            ClientPayButton.setEnabled(false);
+                            break;
+                    }
+                }
+            });
+        } catch (SQLException ex) {
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+            ErrorMassage(ex.toString());
+        }
     }
     
     private void ErrorMassage(String message){
@@ -182,39 +492,61 @@ public class MainFrame extends javax.swing.JFrame {
 
         ManagerView = new javax.swing.JFrame();
         jTabbedPane3 = new javax.swing.JTabbedPane();
-        jPanel5 = new javax.swing.JPanel();
+        ManagerOrderPanel = new javax.swing.JPanel();
         jScrollPane5 = new javax.swing.JScrollPane();
         ManagerOrderTable = new javax.swing.JTable();
         jScrollPane9 = new javax.swing.JScrollPane();
         ManagerEstimateTable = new javax.swing.JTable();
         jLabel17 = new javax.swing.JLabel();
         jLabel18 = new javax.swing.JLabel();
-        jButton7 = new javax.swing.JButton();
-        jButton8 = new javax.swing.JButton();
-        jButton9 = new javax.swing.JButton();
-        jPanel6 = new javax.swing.JPanel();
+        ChangeStatusOrderButton = new javax.swing.JButton();
+        AddOrderButton = new javax.swing.JButton();
+        DeleteOrderButton = new javax.swing.JButton();
+        AddEstimateButton = new javax.swing.JButton();
+        EditEstimateButton = new javax.swing.JButton();
+        DeleteEstimateButton = new javax.swing.JButton();
+        ManagerWorksPanel = new javax.swing.JPanel();
         jScrollPane7 = new javax.swing.JScrollPane();
         ManagerWorkTable = new javax.swing.JTable();
         jScrollPane8 = new javax.swing.JScrollPane();
         ManagerWorkResourceTable = new javax.swing.JTable();
-        jButton4 = new javax.swing.JButton();
-        jButton5 = new javax.swing.JButton();
-        jButton6 = new javax.swing.JButton();
-        jPanel7 = new javax.swing.JPanel();
+        EditWorkButton = new javax.swing.JButton();
+        AddWorkButton = new javax.swing.JButton();
+        DeleteWorkButton = new javax.swing.JButton();
+        AddWorkResourceButton = new javax.swing.JButton();
+        DeleteWorkResourceButton = new javax.swing.JButton();
+        EditWorkResourceButton = new javax.swing.JButton();
+        ManagerResourcePanel = new javax.swing.JPanel();
         jScrollPane6 = new javax.swing.JScrollPane();
         ManagerResourceTable = new javax.swing.JTable();
-        jButton3 = new javax.swing.JButton();
-        jPanel8 = new javax.swing.JPanel();
+        AddResourceButton = new javax.swing.JButton();
+        EditResourceButton = new javax.swing.JButton();
+        DeleteResourceButton = new javax.swing.JButton();
+        ManagerStoragePanel = new javax.swing.JPanel();
         jScrollPane3 = new javax.swing.JScrollPane();
         ManagerStorageTable = new javax.swing.JTable();
         jScrollPane4 = new javax.swing.JScrollPane();
         ManagerStorageResourceTable = new javax.swing.JTable();
         jLabel12 = new javax.swing.JLabel();
         jLabel13 = new javax.swing.JLabel();
-        jPanel9 = new javax.swing.JPanel();
-        jPanel11 = new javax.swing.JPanel();
-        jPanel12 = new javax.swing.JPanel();
-        jPanel10 = new javax.swing.JPanel();
+        TakeResourceFromStorageButton = new javax.swing.JButton();
+        SendResourceToStorageButton = new javax.swing.JButton();
+        EditStorageButton = new javax.swing.JButton();
+        AddStorageButton = new javax.swing.JButton();
+        DeleteStorageButton = new javax.swing.JButton();
+        ManagerClientsPanel = new javax.swing.JPanel();
+        jScrollPane13 = new javax.swing.JScrollPane();
+        ManagerClientTable = new javax.swing.JTable();
+        AddClientButton = new javax.swing.JButton();
+        EditClientButton = new javax.swing.JButton();
+        DeleteClientButton = new javax.swing.JButton();
+        ManagerMastersPanel = new javax.swing.JPanel();
+        jScrollPane14 = new javax.swing.JScrollPane();
+        ManagerMasterTable = new javax.swing.JTable();
+        AddMasterButton = new javax.swing.JButton();
+        EditMasterButton = new javax.swing.JButton();
+        DeleteMasterButton = new javax.swing.JButton();
+        ManagerProfilePanel = new javax.swing.JPanel();
         jLabel14 = new javax.swing.JLabel();
         jLabel15 = new javax.swing.JLabel();
         jLabel16 = new javax.swing.JLabel();
@@ -223,16 +555,17 @@ public class MainFrame extends javax.swing.JFrame {
         ManagerAddressTextField = new javax.swing.JTextField();
         SaveManagerProfileButton = new javax.swing.JButton();
         ManagerExitButton = new javax.swing.JButton();
+        ManagerUpdateButton = new javax.swing.JButton();
         ClientView = new javax.swing.JFrame();
         ClientExitButton = new javax.swing.JButton();
         jTabbedPane2 = new javax.swing.JTabbedPane();
-        jPanel3 = new javax.swing.JPanel();
+        ClientOrderPanel = new javax.swing.JPanel();
         jScrollPane2 = new javax.swing.JScrollPane();
         ClientOrderTable = new javax.swing.JTable();
         ClientPayButton = new javax.swing.JButton();
         ClientAcceptWorkButton = new javax.swing.JButton();
         ClientOrderDetailButton = new javax.swing.JButton();
-        jPanel4 = new javax.swing.JPanel();
+        ClientProfilePanel = new javax.swing.JPanel();
         jLabel6 = new javax.swing.JLabel();
         jLabel8 = new javax.swing.JLabel();
         ClientNameTextField = new javax.swing.JTextField();
@@ -244,12 +577,12 @@ public class MainFrame extends javax.swing.JFrame {
         MasterView = new javax.swing.JFrame();
         MasterExitButton = new javax.swing.JButton();
         jTabbedPane1 = new javax.swing.JTabbedPane();
-        jPanel1 = new javax.swing.JPanel();
+        MasterWorksPanel = new javax.swing.JPanel();
         jScrollPane1 = new javax.swing.JScrollPane();
         MasterWorksTable = new javax.swing.JTable();
         MasterFinishWorkButton = new javax.swing.JButton();
         SaveWorkMasterButton = new javax.swing.JButton();
-        jPanel2 = new javax.swing.JPanel();
+        MasterProfilePanel = new javax.swing.JPanel();
         jLabel5 = new javax.swing.JLabel();
         jLabel7 = new javax.swing.JLabel();
         MasterNameTextField = new javax.swing.JTextField();
@@ -281,6 +614,68 @@ public class MainFrame extends javax.swing.JFrame {
         jLabel29 = new javax.swing.JLabel();
         OkViewButton = new javax.swing.JButton();
         OrderStatusLabel = new javax.swing.JLabel();
+        TakeSendResourceDialog = new javax.swing.JDialog();
+        OkTakeSendResourceDialogButton = new javax.swing.JButton();
+        CanselTakeSendResourceDialogButton = new javax.swing.JButton();
+        TypeNameComboBox = new javax.swing.JComboBox();
+        NameRadio = new javax.swing.JRadioButton();
+        TypeRadio = new javax.swing.JRadioButton();
+        AmountTextField = new javax.swing.JTextField();
+        jLabel9 = new javax.swing.JLabel();
+        TypeNameRadioGroup = new javax.swing.ButtonGroup();
+        AddEditStorageDialog = new javax.swing.JDialog();
+        OkStorageDialogButton = new javax.swing.JButton();
+        CanselStorageDialogButton = new javax.swing.JButton();
+        StorageLocationTextField = new javax.swing.JTextField();
+        jLabel11 = new javax.swing.JLabel();
+        AddEditWorkDialog = new javax.swing.JDialog();
+        OkWorkDialogButton = new javax.swing.JButton();
+        CanselWorkDialogButton = new javax.swing.JButton();
+        jLabel19 = new javax.swing.JLabel();
+        jLabel20 = new javax.swing.JLabel();
+        DescriptionTextField = new javax.swing.JTextField();
+        WorkCoastTextField = new javax.swing.JTextField();
+        AddEditResourceDialog = new javax.swing.JDialog();
+        jLabel21 = new javax.swing.JLabel();
+        jLabel22 = new javax.swing.JLabel();
+        OkResourceDialogButton = new javax.swing.JButton();
+        CanselResourceDialogButton = new javax.swing.JButton();
+        NameTextField = new javax.swing.JTextField();
+        ResourceCoastTextField = new javax.swing.JTextField();
+        jLabel23 = new javax.swing.JLabel();
+        TypeTextField = new javax.swing.JTextField();
+        AddEditClientMasterDialog = new javax.swing.JDialog();
+        OkClientMasterDialogButton = new javax.swing.JButton();
+        CanselClientMasterDialogButton = new javax.swing.JButton();
+        jLabel24 = new javax.swing.JLabel();
+        jLabel25 = new javax.swing.JLabel();
+        jLabel26 = new javax.swing.JLabel();
+        jLabel30 = new javax.swing.JLabel();
+        NameClientMasterTextField = new javax.swing.JTextField();
+        PhoneTextField = new javax.swing.JTextField();
+        AddressTextField = new javax.swing.JTextField();
+        TypeComboBox = new javax.swing.JComboBox();
+        AddEditEstimateDialog = new javax.swing.JDialog();
+        jLabel31 = new javax.swing.JLabel();
+        EstimateTypeComboBox = new javax.swing.JComboBox();
+        jLabel32 = new javax.swing.JLabel();
+        jScrollPane15 = new javax.swing.JScrollPane();
+        EstimateWorksDialogTable = new javax.swing.JTable();
+        AddEstimateDialogButton = new javax.swing.JButton();
+        DeleteEstimateDialogButton = new javax.swing.JButton();
+        CanselEstimateDialogButton = new javax.swing.JButton();
+        OkEstimateDialogButton = new javax.swing.JButton();
+        AddEstimateWorkDialog = new javax.swing.JDialog();
+        jLabel33 = new javax.swing.JLabel();
+        WorkComboBox = new javax.swing.JComboBox();
+        OkAddEstimateWorkDialogButton = new javax.swing.JButton();
+        CanselAddDeleteWorkDialogButton = new javax.swing.JButton();
+        AddOrderDialog = new javax.swing.JDialog();
+        OkOrderDialogButton = new javax.swing.JButton();
+        CanselOrderDialogButton = new javax.swing.JButton();
+        DateCreateTextField = new javax.swing.JTextField();
+        jLabel35 = new javax.swing.JLabel();
+        ManagerClientComboBox = new javax.swing.JComboBox();
         OkButton = new javax.swing.JButton();
         CanselButton = new javax.swing.JButton();
         PasswordFieldText = new javax.swing.JPasswordField();
@@ -291,7 +686,6 @@ public class MainFrame extends javax.swing.JFrame {
         LoginTextField = new javax.swing.JTextField();
 
         ManagerView.setMinimumSize(new java.awt.Dimension(700, 500));
-        ManagerView.setPreferredSize(new java.awt.Dimension(700, 500));
         ManagerView.addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 ManagerViewWindowClosing(evt);
@@ -302,10 +696,7 @@ public class MainFrame extends javax.swing.JFrame {
 
         ManagerOrderTable.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null, null, null, null},
-                {null, null, null, null, null, null},
-                {null, null, null, null, null, null},
-                {null, null, null, null, null, null}
+
             },
             new String [] {
                 "Номер", "Статус", "Стоимость", "Дата создания", "Дата изменения", "Дата закрытия"
@@ -326,14 +717,12 @@ public class MainFrame extends javax.swing.JFrame {
                 return canEdit [columnIndex];
             }
         });
+        ManagerOrderTable.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         jScrollPane5.setViewportView(ManagerOrderTable);
 
         ManagerEstimateTable.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null},
-                {null, null, null},
-                {null, null, null},
-                {null, null, null}
+
             },
             new String [] {
                 "Тип", "Статус", "Стоимость"
@@ -354,67 +743,112 @@ public class MainFrame extends javax.swing.JFrame {
                 return canEdit [columnIndex];
             }
         });
+        ManagerEstimateTable.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         jScrollPane9.setViewportView(ManagerEstimateTable);
 
         jLabel17.setText("Заказы:");
 
         jLabel18.setText("Сметы:");
 
-        jButton7.setText("Редактировать");
+        ChangeStatusOrderButton.setText("Изменить статус");
+        ChangeStatusOrderButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                ChangeStatusOrderButtonActionPerformed(evt);
+            }
+        });
 
-        jButton8.setText("Добавить");
+        AddOrderButton.setText("Добавить");
+        AddOrderButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                AddOrderButtonActionPerformed(evt);
+            }
+        });
 
-        jButton9.setText("Удалить");
+        DeleteOrderButton.setText("Удалить");
+        DeleteOrderButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                DeleteOrderButtonActionPerformed(evt);
+            }
+        });
 
-        javax.swing.GroupLayout jPanel5Layout = new javax.swing.GroupLayout(jPanel5);
-        jPanel5.setLayout(jPanel5Layout);
-        jPanel5Layout.setHorizontalGroup(
-            jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel5Layout.createSequentialGroup()
+        AddEstimateButton.setText("Добавить");
+        AddEstimateButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                AddEstimateButtonActionPerformed(evt);
+            }
+        });
+
+        EditEstimateButton.setText("Редактировать");
+        EditEstimateButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                EditEstimateButtonActionPerformed(evt);
+            }
+        });
+
+        DeleteEstimateButton.setText("Удалить");
+        DeleteEstimateButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                DeleteEstimateButtonActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout ManagerOrderPanelLayout = new javax.swing.GroupLayout(ManagerOrderPanel);
+        ManagerOrderPanel.setLayout(ManagerOrderPanelLayout);
+        ManagerOrderPanelLayout.setHorizontalGroup(
+            ManagerOrderPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ManagerOrderPanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(ManagerOrderPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jScrollPane5, javax.swing.GroupLayout.DEFAULT_SIZE, 655, Short.MAX_VALUE)
                     .addComponent(jScrollPane9)
-                    .addGroup(jPanel5Layout.createSequentialGroup()
-                        .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(ManagerOrderPanelLayout.createSequentialGroup()
+                        .addGroup(ManagerOrderPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(jLabel17)
                             .addComponent(jLabel18)
-                            .addGroup(jPanel5Layout.createSequentialGroup()
-                                .addComponent(jButton8)
+                            .addGroup(ManagerOrderPanelLayout.createSequentialGroup()
+                                .addComponent(AddOrderButton)
                                 .addGap(18, 18, 18)
-                                .addComponent(jButton7)
+                                .addComponent(ChangeStatusOrderButton)
                                 .addGap(18, 18, 18)
-                                .addComponent(jButton9)))
+                                .addComponent(DeleteOrderButton))
+                            .addGroup(ManagerOrderPanelLayout.createSequentialGroup()
+                                .addComponent(AddEstimateButton)
+                                .addGap(18, 18, 18)
+                                .addComponent(EditEstimateButton)
+                                .addGap(18, 18, 18)
+                                .addComponent(DeleteEstimateButton)))
                         .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
         );
-        jPanel5Layout.setVerticalGroup(
-            jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel5Layout.createSequentialGroup()
+        ManagerOrderPanelLayout.setVerticalGroup(
+            ManagerOrderPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ManagerOrderPanelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(jLabel17)
                 .addGap(18, 18, 18)
                 .addComponent(jScrollPane5, javax.swing.GroupLayout.DEFAULT_SIZE, 119, Short.MAX_VALUE)
                 .addGap(18, 18, 18)
-                .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jButton8)
-                    .addComponent(jButton7)
-                    .addComponent(jButton9))
+                .addGroup(ManagerOrderPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(AddOrderButton)
+                    .addComponent(ChangeStatusOrderButton)
+                    .addComponent(DeleteOrderButton))
                 .addGap(18, 18, 18)
                 .addComponent(jLabel18)
                 .addGap(18, 18, 18)
-                .addComponent(jScrollPane9, javax.swing.GroupLayout.DEFAULT_SIZE, 145, Short.MAX_VALUE)
+                .addComponent(jScrollPane9, javax.swing.GroupLayout.PREFERRED_SIZE, 104, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addGroup(ManagerOrderPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(AddEstimateButton)
+                    .addComponent(EditEstimateButton)
+                    .addComponent(DeleteEstimateButton))
                 .addContainerGap())
         );
 
-        jTabbedPane3.addTab("Заказы", jPanel5);
+        jTabbedPane3.addTab("Заказы", ManagerOrderPanel);
 
         ManagerWorkTable.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null},
-                {null, null, null},
-                {null, null, null},
-                {null, null, null}
+
             },
             new String [] {
                 "Описание", "Стоимость работаты", "Полная стоимость"
@@ -435,24 +869,22 @@ public class MainFrame extends javax.swing.JFrame {
                 return canEdit [columnIndex];
             }
         });
+        ManagerWorkTable.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         jScrollPane7.setViewportView(ManagerWorkTable);
 
         ManagerWorkResourceTable.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null},
-                {null, null, null},
-                {null, null, null},
-                {null, null, null}
+
             },
             new String [] {
-                "Тип", "Описание", "Стоимость"
+                " Название", "Количство", "Цена за шт./ед.изм.", "Тип"
             }
         ) {
             Class[] types = new Class [] {
-                java.lang.String.class, java.lang.String.class, java.lang.String.class
+                java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class
             };
             boolean[] canEdit = new boolean [] {
-                false, false, false
+                false, false, false, false
             };
 
             public Class getColumnClass(int columnIndex) {
@@ -463,58 +895,100 @@ public class MainFrame extends javax.swing.JFrame {
                 return canEdit [columnIndex];
             }
         });
+        ManagerWorkResourceTable.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         jScrollPane8.setViewportView(ManagerWorkResourceTable);
 
-        jButton4.setText("Редактировать");
+        EditWorkButton.setText("Редактировать");
+        EditWorkButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                EditWorkButtonActionPerformed(evt);
+            }
+        });
 
-        jButton5.setText("Добавить");
+        AddWorkButton.setText("Добавить");
+        AddWorkButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                AddWorkButtonActionPerformed(evt);
+            }
+        });
 
-        jButton6.setText("Удалить");
+        DeleteWorkButton.setText("Удалить");
+        DeleteWorkButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                DeleteWorkButtonActionPerformed(evt);
+            }
+        });
 
-        javax.swing.GroupLayout jPanel6Layout = new javax.swing.GroupLayout(jPanel6);
-        jPanel6.setLayout(jPanel6Layout);
-        jPanel6Layout.setHorizontalGroup(
-            jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel6Layout.createSequentialGroup()
+        AddWorkResourceButton.setText("Добавить ресурс");
+        AddWorkResourceButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                AddWorkResourceButtonActionPerformed(evt);
+            }
+        });
+
+        DeleteWorkResourceButton.setText("Удалить ресурс");
+        DeleteWorkResourceButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                DeleteWorkResourceButtonActionPerformed(evt);
+            }
+        });
+
+        EditWorkResourceButton.setText("Редактировать ресурс");
+        EditWorkResourceButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                EditWorkResourceButtonActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout ManagerWorksPanelLayout = new javax.swing.GroupLayout(ManagerWorksPanel);
+        ManagerWorksPanel.setLayout(ManagerWorksPanelLayout);
+        ManagerWorksPanelLayout.setHorizontalGroup(
+            ManagerWorksPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ManagerWorksPanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane7, javax.swing.GroupLayout.DEFAULT_SIZE, 266, Short.MAX_VALUE)
+                .addComponent(jScrollPane7, javax.swing.GroupLayout.DEFAULT_SIZE, 247, Short.MAX_VALUE)
                 .addGap(18, 18, 18)
-                .addComponent(jScrollPane8, javax.swing.GroupLayout.DEFAULT_SIZE, 242, Short.MAX_VALUE)
+                .addComponent(jScrollPane8, javax.swing.GroupLayout.DEFAULT_SIZE, 223, Short.MAX_VALUE)
                 .addGap(18, 18, 18)
-                .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(jButton6, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jButton4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jButton5, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGroup(ManagerWorksPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(DeleteWorkButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(EditWorkButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(AddWorkButton, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(AddWorkResourceButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(DeleteWorkResourceButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(EditWorkResourceButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
-        jPanel6Layout.setVerticalGroup(
-            jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel6Layout.createSequentialGroup()
+        ManagerWorksPanelLayout.setVerticalGroup(
+            ManagerWorksPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ManagerWorksPanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane8, javax.swing.GroupLayout.DEFAULT_SIZE, 349, Short.MAX_VALUE)
-                    .addGroup(jPanel6Layout.createSequentialGroup()
-                        .addComponent(jButton5)
+                .addGroup(ManagerWorksPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jScrollPane8, javax.swing.GroupLayout.DEFAULT_SIZE, 387, Short.MAX_VALUE)
+                    .addGroup(ManagerWorksPanelLayout.createSequentialGroup()
+                        .addComponent(AddWorkButton)
                         .addGap(18, 18, 18)
-                        .addComponent(jButton4)
+                        .addComponent(EditWorkButton)
                         .addGap(18, 18, 18)
-                        .addComponent(jButton6)
-                        .addGap(0, 0, Short.MAX_VALUE))
+                        .addComponent(DeleteWorkButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(AddWorkResourceButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(EditWorkResourceButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(DeleteWorkResourceButton))
                     .addComponent(jScrollPane7, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
                 .addContainerGap())
         );
 
-        jTabbedPane3.addTab("Работы", jPanel6);
+        jTabbedPane3.addTab("Работы", ManagerWorksPanel);
 
         ManagerResourceTable.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null},
-                {null, null, null},
-                {null, null, null},
-                {null, null, null}
+
             },
             new String [] {
-                "Тип", "Описание", "Стоимость"
+                "Название", "Цена за шт./ед.изм.", "Тип"
             }
         ) {
             Class[] types = new Class [] {
@@ -532,41 +1006,65 @@ public class MainFrame extends javax.swing.JFrame {
                 return canEdit [columnIndex];
             }
         });
+        ManagerResourceTable.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         jScrollPane6.setViewportView(ManagerResourceTable);
 
-        jButton3.setText("Редактировать");
+        AddResourceButton.setText("Добавить");
+        AddResourceButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                AddResourceButtonActionPerformed(evt);
+            }
+        });
 
-        javax.swing.GroupLayout jPanel7Layout = new javax.swing.GroupLayout(jPanel7);
-        jPanel7.setLayout(jPanel7Layout);
-        jPanel7Layout.setHorizontalGroup(
-            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel7Layout.createSequentialGroup()
+        EditResourceButton.setText("Редактировать");
+        EditResourceButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                EditResourceButtonActionPerformed(evt);
+            }
+        });
+
+        DeleteResourceButton.setText("Удалить");
+        DeleteResourceButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                DeleteResourceButtonActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout ManagerResourcePanelLayout = new javax.swing.GroupLayout(ManagerResourcePanel);
+        ManagerResourcePanel.setLayout(ManagerResourcePanelLayout);
+        ManagerResourcePanelLayout.setHorizontalGroup(
+            ManagerResourcePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ManagerResourcePanelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(jScrollPane6, javax.swing.GroupLayout.DEFAULT_SIZE, 526, Short.MAX_VALUE)
                 .addGap(18, 18, 18)
-                .addComponent(jButton3)
+                .addGroup(ManagerResourcePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(AddResourceButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(EditResourceButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(DeleteResourceButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
-        jPanel7Layout.setVerticalGroup(
-            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel7Layout.createSequentialGroup()
+        ManagerResourcePanelLayout.setVerticalGroup(
+            ManagerResourcePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ManagerResourcePanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel7Layout.createSequentialGroup()
-                        .addComponent(jButton3)
+                .addGroup(ManagerResourcePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(ManagerResourcePanelLayout.createSequentialGroup()
+                        .addComponent(AddResourceButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(EditResourceButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(DeleteResourceButton)
                         .addGap(0, 0, Short.MAX_VALUE))
-                    .addComponent(jScrollPane6, javax.swing.GroupLayout.DEFAULT_SIZE, 349, Short.MAX_VALUE))
+                    .addComponent(jScrollPane6, javax.swing.GroupLayout.DEFAULT_SIZE, 387, Short.MAX_VALUE))
                 .addContainerGap())
         );
 
-        jTabbedPane3.addTab("Ресурсы", jPanel7);
+        jTabbedPane3.addTab("Ресурсы", ManagerResourcePanel);
 
         ManagerStorageTable.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null},
-                {null},
-                {null},
-                {null}
+
             },
             new String [] {
                 "Адрес"
@@ -587,24 +1085,22 @@ public class MainFrame extends javax.swing.JFrame {
                 return canEdit [columnIndex];
             }
         });
+        ManagerStorageTable.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         jScrollPane3.setViewportView(ManagerStorageTable);
 
         ManagerStorageResourceTable.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null},
-                {null, null, null},
-                {null, null, null},
-                {null, null, null}
+
             },
             new String [] {
-                "Название", "Количество", "Цена за шт./ед.изм."
+                "Название", "Количество", "Цена за шт./ед.изм.", "Тип"
             }
         ) {
             Class[] types = new Class [] {
-                java.lang.String.class, java.lang.String.class, java.lang.String.class
+                java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class
             };
             boolean[] canEdit = new boolean [] {
-                false, false, false
+                false, false, false, false
             };
 
             public Class getColumnClass(int columnIndex) {
@@ -615,83 +1111,260 @@ public class MainFrame extends javax.swing.JFrame {
                 return canEdit [columnIndex];
             }
         });
+        ManagerStorageResourceTable.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         jScrollPane4.setViewportView(ManagerStorageResourceTable);
 
         jLabel12.setText("Склды:");
 
         jLabel13.setText("Ресурсы:");
 
-        javax.swing.GroupLayout jPanel8Layout = new javax.swing.GroupLayout(jPanel8);
-        jPanel8.setLayout(jPanel8Layout);
-        jPanel8Layout.setHorizontalGroup(
-            jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel8Layout.createSequentialGroup()
+        TakeResourceFromStorageButton.setText("Взять ресурсы");
+        TakeResourceFromStorageButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                TakeResourceFromStorageButtonActionPerformed(evt);
+            }
+        });
+
+        SendResourceToStorageButton.setText("Добавить ресурсы");
+        SendResourceToStorageButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                SendResourceToStorageButtonActionPerformed(evt);
+            }
+        });
+
+        EditStorageButton.setText("Редактировать");
+        EditStorageButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                EditStorageButtonActionPerformed(evt);
+            }
+        });
+
+        AddStorageButton.setText("Добавить склад");
+        AddStorageButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                AddStorageButtonActionPerformed(evt);
+            }
+        });
+
+        DeleteStorageButton.setText("Удалить склад");
+        DeleteStorageButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                DeleteStorageButtonActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout ManagerStoragePanelLayout = new javax.swing.GroupLayout(ManagerStoragePanel);
+        ManagerStoragePanel.setLayout(ManagerStoragePanelLayout);
+        ManagerStoragePanelLayout.setHorizontalGroup(
+            ManagerStoragePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ManagerStoragePanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 315, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel12))
-                .addGap(18, 18, 18)
-                .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel8Layout.createSequentialGroup()
-                        .addComponent(jLabel13)
-                        .addGap(0, 0, Short.MAX_VALUE))
-                    .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 322, Short.MAX_VALUE))
+                .addGroup(ManagerStoragePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addGroup(ManagerStoragePanelLayout.createSequentialGroup()
+                        .addGroup(ManagerStoragePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 315, Short.MAX_VALUE)
+                            .addComponent(jLabel12))
+                        .addGap(18, 18, 18)
+                        .addGroup(ManagerStoragePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(ManagerStoragePanelLayout.createSequentialGroup()
+                                .addComponent(jLabel13)
+                                .addGap(0, 0, Short.MAX_VALUE))
+                            .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 322, Short.MAX_VALUE)))
+                    .addGroup(ManagerStoragePanelLayout.createSequentialGroup()
+                        .addComponent(AddStorageButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(EditStorageButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(DeleteStorageButton)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(SendResourceToStorageButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(TakeResourceFromStorageButton)))
                 .addContainerGap())
         );
-        jPanel8Layout.setVerticalGroup(
-            jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel8Layout.createSequentialGroup()
+        ManagerStoragePanelLayout.setVerticalGroup(
+            ManagerStoragePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ManagerStoragePanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(ManagerStoragePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel12)
                     .addComponent(jLabel13))
+                .addGroup(ManagerStoragePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(ManagerStoragePanelLayout.createSequentialGroup()
+                        .addGap(18, 18, 18)
+                        .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 314, Short.MAX_VALUE))
+                    .addGroup(ManagerStoragePanelLayout.createSequentialGroup()
+                        .addGap(18, 18, 18)
+                        .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)))
                 .addGap(18, 18, 18)
-                .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 317, Short.MAX_VALUE)
-                    .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
+                .addGroup(ManagerStoragePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(TakeResourceFromStorageButton)
+                    .addComponent(SendResourceToStorageButton)
+                    .addComponent(EditStorageButton)
+                    .addComponent(AddStorageButton)
+                    .addComponent(DeleteStorageButton))
                 .addContainerGap())
         );
 
-        jTabbedPane3.addTab("Склад", jPanel8);
+        jTabbedPane3.addTab("Склад", ManagerStoragePanel);
 
-        javax.swing.GroupLayout jPanel9Layout = new javax.swing.GroupLayout(jPanel9);
-        jPanel9.setLayout(jPanel9Layout);
-        jPanel9Layout.setHorizontalGroup(
-            jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 675, Short.MAX_VALUE)
+        ManagerClientTable.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+
+            },
+            new String [] {
+                "Ф.И.О.", "Телефон", "Адрес", "Тип клиента"
+            }
+        ) {
+            Class[] types = new Class [] {
+                java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class
+            };
+            boolean[] canEdit = new boolean [] {
+                false, false, false, false
+            };
+
+            public Class getColumnClass(int columnIndex) {
+                return types [columnIndex];
+            }
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit [columnIndex];
+            }
+        });
+        ManagerClientTable.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+        jScrollPane13.setViewportView(ManagerClientTable);
+
+        AddClientButton.setText("Добавить");
+        AddClientButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                AddClientButtonActionPerformed(evt);
+            }
+        });
+
+        EditClientButton.setText("Редактировать");
+        EditClientButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                EditClientButtonActionPerformed(evt);
+            }
+        });
+
+        DeleteClientButton.setText("Удалить");
+        DeleteClientButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                DeleteClientButtonActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout ManagerClientsPanelLayout = new javax.swing.GroupLayout(ManagerClientsPanel);
+        ManagerClientsPanel.setLayout(ManagerClientsPanelLayout);
+        ManagerClientsPanelLayout.setHorizontalGroup(
+            ManagerClientsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ManagerClientsPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane13, javax.swing.GroupLayout.DEFAULT_SIZE, 526, Short.MAX_VALUE)
+                .addGap(18, 18, 18)
+                .addGroup(ManagerClientsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(EditClientButton, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(AddClientButton, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(DeleteClientButton, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
         );
-        jPanel9Layout.setVerticalGroup(
-            jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 371, Short.MAX_VALUE)
+        ManagerClientsPanelLayout.setVerticalGroup(
+            ManagerClientsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ManagerClientsPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(ManagerClientsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(ManagerClientsPanelLayout.createSequentialGroup()
+                        .addComponent(AddClientButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(EditClientButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(DeleteClientButton)
+                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addComponent(jScrollPane13, javax.swing.GroupLayout.DEFAULT_SIZE, 387, Short.MAX_VALUE))
+                .addContainerGap())
         );
 
-        jTabbedPane3.addTab("Графики", jPanel9);
+        jTabbedPane3.addTab("Заказчики", ManagerClientsPanel);
 
-        javax.swing.GroupLayout jPanel11Layout = new javax.swing.GroupLayout(jPanel11);
-        jPanel11.setLayout(jPanel11Layout);
-        jPanel11Layout.setHorizontalGroup(
-            jPanel11Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 675, Short.MAX_VALUE)
+        ManagerMasterTable.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+
+            },
+            new String [] {
+                "Ф.И.О.", "Телефон"
+            }
+        ) {
+            Class[] types = new Class [] {
+                java.lang.String.class, java.lang.String.class
+            };
+            boolean[] canEdit = new boolean [] {
+                false, false
+            };
+
+            public Class getColumnClass(int columnIndex) {
+                return types [columnIndex];
+            }
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit [columnIndex];
+            }
+        });
+        ManagerMasterTable.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+        jScrollPane14.setViewportView(ManagerMasterTable);
+
+        AddMasterButton.setText("Добавить");
+        AddMasterButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                AddMasterButtonActionPerformed(evt);
+            }
+        });
+
+        EditMasterButton.setText("Редактировать");
+        EditMasterButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                EditMasterButtonActionPerformed(evt);
+            }
+        });
+
+        DeleteMasterButton.setText("Удалить");
+        DeleteMasterButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                DeleteMasterButtonActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout ManagerMastersPanelLayout = new javax.swing.GroupLayout(ManagerMastersPanel);
+        ManagerMastersPanel.setLayout(ManagerMastersPanelLayout);
+        ManagerMastersPanelLayout.setHorizontalGroup(
+            ManagerMastersPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ManagerMastersPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane14, javax.swing.GroupLayout.DEFAULT_SIZE, 526, Short.MAX_VALUE)
+                .addGap(18, 18, 18)
+                .addGroup(ManagerMastersPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(EditMasterButton, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(AddMasterButton, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(DeleteMasterButton, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
         );
-        jPanel11Layout.setVerticalGroup(
-            jPanel11Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 409, Short.MAX_VALUE)
+        ManagerMastersPanelLayout.setVerticalGroup(
+            ManagerMastersPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ManagerMastersPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(ManagerMastersPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(ManagerMastersPanelLayout.createSequentialGroup()
+                        .addComponent(AddMasterButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(EditMasterButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(DeleteMasterButton)
+                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addComponent(jScrollPane14, javax.swing.GroupLayout.DEFAULT_SIZE, 387, Short.MAX_VALUE))
+                .addContainerGap())
         );
 
-        jTabbedPane3.addTab("Заказчики", jPanel11);
-
-        javax.swing.GroupLayout jPanel12Layout = new javax.swing.GroupLayout(jPanel12);
-        jPanel12.setLayout(jPanel12Layout);
-        jPanel12Layout.setHorizontalGroup(
-            jPanel12Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 675, Short.MAX_VALUE)
-        );
-        jPanel12Layout.setVerticalGroup(
-            jPanel12Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 409, Short.MAX_VALUE)
-        );
-
-        jTabbedPane3.addTab("Прорабы", jPanel12);
+        jTabbedPane3.addTab("Прорабы", ManagerMastersPanel);
 
         jLabel14.setText("ФИО");
 
@@ -712,56 +1385,63 @@ public class MainFrame extends javax.swing.JFrame {
             }
         });
 
-        javax.swing.GroupLayout jPanel10Layout = new javax.swing.GroupLayout(jPanel10);
-        jPanel10.setLayout(jPanel10Layout);
-        jPanel10Layout.setHorizontalGroup(
-            jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel10Layout.createSequentialGroup()
+        javax.swing.GroupLayout ManagerProfilePanelLayout = new javax.swing.GroupLayout(ManagerProfilePanel);
+        ManagerProfilePanel.setLayout(ManagerProfilePanelLayout);
+        ManagerProfilePanelLayout.setHorizontalGroup(
+            ManagerProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ManagerProfilePanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel10Layout.createSequentialGroup()
+                .addGroup(ManagerProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(ManagerProfilePanelLayout.createSequentialGroup()
                         .addComponent(jLabel16)
                         .addGap(18, 18, 18)
                         .addComponent(ManagerAddressTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 572, Short.MAX_VALUE))
-                    .addGroup(jPanel10Layout.createSequentialGroup()
+                    .addGroup(ManagerProfilePanelLayout.createSequentialGroup()
                         .addComponent(jLabel14)
                         .addGap(18, 18, 18)
                         .addComponent(ManagerNameTextField))
-                    .addGroup(jPanel10Layout.createSequentialGroup()
+                    .addGroup(ManagerProfilePanelLayout.createSequentialGroup()
                         .addComponent(jLabel15)
                         .addGap(18, 18, 18)
                         .addComponent(ManagerPhoneTextField))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel10Layout.createSequentialGroup()
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, ManagerProfilePanelLayout.createSequentialGroup()
                         .addGap(0, 0, Short.MAX_VALUE)
                         .addComponent(SaveManagerProfileButton)))
                 .addContainerGap())
         );
-        jPanel10Layout.setVerticalGroup(
-            jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel10Layout.createSequentialGroup()
+        ManagerProfilePanelLayout.setVerticalGroup(
+            ManagerProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ManagerProfilePanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(ManagerProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel14)
                     .addComponent(ManagerNameTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
-                .addGroup(jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(ManagerProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel15)
                     .addComponent(ManagerPhoneTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
-                .addGroup(jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(ManagerProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel16)
                     .addComponent(ManagerAddressTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 230, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 268, Short.MAX_VALUE)
                 .addComponent(SaveManagerProfileButton)
                 .addContainerGap())
         );
 
-        jTabbedPane3.addTab("Профиль", jPanel10);
+        jTabbedPane3.addTab("Профиль", ManagerProfilePanel);
 
         ManagerExitButton.setText("Выход");
         ManagerExitButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 ManagerExitButtonActionPerformed(evt);
+            }
+        });
+
+        ManagerUpdateButton.setText("Обновить");
+        ManagerUpdateButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                ManagerUpdateButtonActionPerformed(evt);
             }
         });
 
@@ -775,6 +1455,8 @@ public class MainFrame extends javax.swing.JFrame {
                     .addComponent(jTabbedPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 680, Short.MAX_VALUE)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, ManagerViewLayout.createSequentialGroup()
                         .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(ManagerUpdateButton)
+                        .addGap(18, 18, 18)
                         .addComponent(ManagerExitButton)))
                 .addContainerGap())
         );
@@ -782,14 +1464,15 @@ public class MainFrame extends javax.swing.JFrame {
             ManagerViewLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(ManagerViewLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jTabbedPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 399, Short.MAX_VALUE)
+                .addComponent(jTabbedPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 437, Short.MAX_VALUE)
                 .addGap(18, 18, 18)
-                .addComponent(ManagerExitButton)
+                .addGroup(ManagerViewLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(ManagerExitButton)
+                    .addComponent(ManagerUpdateButton))
                 .addContainerGap())
         );
 
         ClientView.setMinimumSize(new java.awt.Dimension(700, 500));
-        ClientView.setPreferredSize(new java.awt.Dimension(700, 500));
         ClientView.addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 ClientViewWindowClosing(evt);
@@ -850,26 +1533,26 @@ public class MainFrame extends javax.swing.JFrame {
             }
         });
 
-        javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
-        jPanel3.setLayout(jPanel3Layout);
-        jPanel3Layout.setHorizontalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel3Layout.createSequentialGroup()
+        javax.swing.GroupLayout ClientOrderPanelLayout = new javax.swing.GroupLayout(ClientOrderPanel);
+        ClientOrderPanel.setLayout(ClientOrderPanelLayout);
+        ClientOrderPanelLayout.setHorizontalGroup(
+            ClientOrderPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ClientOrderPanelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 522, Short.MAX_VALUE)
                 .addGap(18, 18, 18)
-                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                .addGroup(ClientOrderPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(ClientOrderDetailButton, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(ClientPayButton, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(ClientAcceptWorkButton, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
-        jPanel3Layout.setVerticalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel3Layout.createSequentialGroup()
+        ClientOrderPanelLayout.setVerticalGroup(
+            ClientOrderPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ClientOrderPanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel3Layout.createSequentialGroup()
+                .addGroup(ClientOrderPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(ClientOrderPanelLayout.createSequentialGroup()
                         .addComponent(ClientAcceptWorkButton, javax.swing.GroupLayout.PREFERRED_SIZE, 23, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(18, 18, 18)
                         .addComponent(ClientPayButton)
@@ -880,7 +1563,7 @@ public class MainFrame extends javax.swing.JFrame {
                 .addContainerGap())
         );
 
-        jTabbedPane2.addTab("Заказы", jPanel3);
+        jTabbedPane2.addTab("Заказы", ClientOrderPanel);
 
         jLabel6.setText("ФИО");
 
@@ -903,46 +1586,46 @@ public class MainFrame extends javax.swing.JFrame {
             }
         });
 
-        javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
-        jPanel4.setLayout(jPanel4Layout);
-        jPanel4Layout.setHorizontalGroup(
-            jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel4Layout.createSequentialGroup()
+        javax.swing.GroupLayout ClientProfilePanelLayout = new javax.swing.GroupLayout(ClientProfilePanel);
+        ClientProfilePanel.setLayout(ClientProfilePanelLayout);
+        ClientProfilePanelLayout.setHorizontalGroup(
+            ClientProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ClientProfilePanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel4Layout.createSequentialGroup()
+                .addGroup(ClientProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(ClientProfilePanelLayout.createSequentialGroup()
                         .addComponent(jLabel6)
                         .addGap(18, 18, 18)
                         .addComponent(ClientNameTextField))
-                    .addGroup(jPanel4Layout.createSequentialGroup()
+                    .addGroup(ClientProfilePanelLayout.createSequentialGroup()
                         .addComponent(jLabel8)
                         .addGap(18, 18, 18)
                         .addComponent(ClientPhoneTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 593, Short.MAX_VALUE))
-                    .addGroup(jPanel4Layout.createSequentialGroup()
+                    .addGroup(ClientProfilePanelLayout.createSequentialGroup()
                         .addComponent(jLabel10)
                         .addGap(18, 18, 18)
                         .addComponent(ClientAddressTextField))
-                    .addGroup(jPanel4Layout.createSequentialGroup()
+                    .addGroup(ClientProfilePanelLayout.createSequentialGroup()
                         .addComponent(ClientTypeLabel)
                         .addGap(0, 0, Short.MAX_VALUE))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel4Layout.createSequentialGroup()
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, ClientProfilePanelLayout.createSequentialGroup()
                         .addGap(0, 0, Short.MAX_VALUE)
                         .addComponent(SaveClientProfileButton)))
                 .addContainerGap())
         );
-        jPanel4Layout.setVerticalGroup(
-            jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel4Layout.createSequentialGroup()
+        ClientProfilePanelLayout.setVerticalGroup(
+            ClientProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ClientProfilePanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(ClientProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel6)
                     .addComponent(ClientNameTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
-                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(ClientProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel8)
                     .addComponent(ClientPhoneTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
-                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(ClientProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel10)
                     .addComponent(ClientAddressTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
@@ -952,7 +1635,7 @@ public class MainFrame extends javax.swing.JFrame {
                 .addContainerGap())
         );
 
-        jTabbedPane2.addTab("Профиль", jPanel4);
+        jTabbedPane2.addTab("Профиль", ClientProfilePanel);
 
         javax.swing.GroupLayout ClientViewLayout = new javax.swing.GroupLayout(ClientView.getContentPane());
         ClientView.getContentPane().setLayout(ClientViewLayout);
@@ -979,7 +1662,6 @@ public class MainFrame extends javax.swing.JFrame {
         );
 
         MasterView.setMinimumSize(new java.awt.Dimension(700, 500));
-        MasterView.setPreferredSize(new java.awt.Dimension(700, 500));
         MasterView.addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 MasterViewWindowClosing(evt);
@@ -1028,33 +1710,33 @@ public class MainFrame extends javax.swing.JFrame {
 
         SaveWorkMasterButton.setText("Сохранить");
 
-        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
-        jPanel1.setLayout(jPanel1Layout);
-        jPanel1Layout.setHorizontalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
+        javax.swing.GroupLayout MasterWorksPanelLayout = new javax.swing.GroupLayout(MasterWorksPanel);
+        MasterWorksPanel.setLayout(MasterWorksPanelLayout);
+        MasterWorksPanelLayout.setHorizontalGroup(
+            MasterWorksPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(MasterWorksPanelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 532, Short.MAX_VALUE)
                 .addGap(18, 18, 18)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                .addGroup(MasterWorksPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(MasterFinishWorkButton, javax.swing.GroupLayout.DEFAULT_SIZE, 97, Short.MAX_VALUE)
                     .addComponent(SaveWorkMasterButton, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addGap(18, 18, 18))
         );
-        jPanel1Layout.setVerticalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
+        MasterWorksPanelLayout.setVerticalGroup(
+            MasterWorksPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(MasterWorksPanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(MasterWorksPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 387, Short.MAX_VALUE)
-                    .addGroup(jPanel1Layout.createSequentialGroup()
+                    .addGroup(MasterWorksPanelLayout.createSequentialGroup()
                         .addComponent(MasterFinishWorkButton)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(SaveWorkMasterButton)))
                 .addContainerGap())
         );
 
-        jTabbedPane1.addTab("Работы", jPanel1);
+        jTabbedPane1.addTab("Работы", MasterWorksPanel);
 
         jLabel5.setText("ФИО");
 
@@ -1071,35 +1753,35 @@ public class MainFrame extends javax.swing.JFrame {
             }
         });
 
-        javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
-        jPanel2.setLayout(jPanel2Layout);
-        jPanel2Layout.setHorizontalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
+        javax.swing.GroupLayout MasterProfilePanelLayout = new javax.swing.GroupLayout(MasterProfilePanel);
+        MasterProfilePanel.setLayout(MasterProfilePanelLayout);
+        MasterProfilePanelLayout.setHorizontalGroup(
+            MasterProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(MasterProfilePanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel2Layout.createSequentialGroup()
+                .addGroup(MasterProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(MasterProfilePanelLayout.createSequentialGroup()
                         .addComponent(jLabel5)
                         .addGap(39, 39, 39)
                         .addComponent(MasterNameTextField))
-                    .addGroup(jPanel2Layout.createSequentialGroup()
+                    .addGroup(MasterProfilePanelLayout.createSequentialGroup()
                         .addComponent(jLabel7)
                         .addGap(18, 18, 18)
                         .addComponent(MasterPhoneTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 593, Short.MAX_VALUE))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, MasterProfilePanelLayout.createSequentialGroup()
                         .addGap(0, 0, Short.MAX_VALUE)
                         .addComponent(SaveMasterProfileButton)))
                 .addContainerGap())
         );
-        jPanel2Layout.setVerticalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
+        MasterProfilePanelLayout.setVerticalGroup(
+            MasterProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(MasterProfilePanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(MasterProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel5)
                     .addComponent(MasterNameTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(MasterProfilePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel7)
                     .addComponent(MasterPhoneTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 237, Short.MAX_VALUE)
@@ -1107,7 +1789,7 @@ public class MainFrame extends javax.swing.JFrame {
                 .addContainerGap())
         );
 
-        jTabbedPane1.addTab("Профиль", jPanel2);
+        jTabbedPane1.addTab("Профиль", MasterProfilePanel);
 
         WorkMasterSumLabel.setText("Итого:");
 
@@ -1203,7 +1885,7 @@ public class MainFrame extends javax.swing.JFrame {
 
             },
             new String [] {
-                "Тип", "Описание", "Количество", "Стоимость"
+                "Название", "Количество", "Цена за шт./ед.изм.", "Тип"
             }
         ) {
             Class[] types = new Class [] {
@@ -1381,6 +2063,603 @@ public class MainFrame extends javax.swing.JFrame {
                 .addContainerGap())
         );
 
+        TakeSendResourceDialog.setMinimumSize(new java.awt.Dimension(250, 200));
+        TakeSendResourceDialog.setModal(true);
+
+        OkTakeSendResourceDialogButton.setText("Ок");
+        OkTakeSendResourceDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                OkTakeSendResourceDialogButtonActionPerformed(evt);
+            }
+        });
+
+        CanselTakeSendResourceDialogButton.setText("Отмена");
+        CanselTakeSendResourceDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                CanselTakeSendResourceDialogButtonActionPerformed(evt);
+            }
+        });
+
+        TypeNameComboBox.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Название или тип" }));
+
+        TypeNameRadioGroup.add(NameRadio);
+        NameRadio.setText("Название");
+        NameRadio.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                NameRadioActionPerformed(evt);
+            }
+        });
+
+        TypeNameRadioGroup.add(TypeRadio);
+        TypeRadio.setText("Тип");
+        TypeRadio.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                TypeRadioActionPerformed(evt);
+            }
+        });
+
+        AmountTextField.setText("кол-во");
+
+        jLabel9.setText("Количество");
+
+        javax.swing.GroupLayout TakeSendResourceDialogLayout = new javax.swing.GroupLayout(TakeSendResourceDialog.getContentPane());
+        TakeSendResourceDialog.getContentPane().setLayout(TakeSendResourceDialogLayout);
+        TakeSendResourceDialogLayout.setHorizontalGroup(
+            TakeSendResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(TakeSendResourceDialogLayout.createSequentialGroup()
+                .addGroup(TakeSendResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, TakeSendResourceDialogLayout.createSequentialGroup()
+                        .addGap(0, 104, Short.MAX_VALUE)
+                        .addComponent(OkTakeSendResourceDialogButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(CanselTakeSendResourceDialogButton))
+                    .addGroup(TakeSendResourceDialogLayout.createSequentialGroup()
+                        .addContainerGap()
+                        .addGroup(TakeSendResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(TakeSendResourceDialogLayout.createSequentialGroup()
+                                .addComponent(NameRadio)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(TypeRadio)
+                                .addGap(0, 0, Short.MAX_VALUE))
+                            .addComponent(TypeNameComboBox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addGroup(TakeSendResourceDialogLayout.createSequentialGroup()
+                                .addComponent(jLabel9)
+                                .addGap(18, 18, 18)
+                                .addComponent(AmountTextField)))))
+                .addContainerGap())
+        );
+        TakeSendResourceDialogLayout.setVerticalGroup(
+            TakeSendResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, TakeSendResourceDialogLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(TakeSendResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(NameRadio)
+                    .addComponent(TypeRadio))
+                .addGap(18, 18, 18)
+                .addComponent(TypeNameComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addGroup(TakeSendResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(AmountTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel9))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 60, Short.MAX_VALUE)
+                .addGroup(TakeSendResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(OkTakeSendResourceDialogButton)
+                    .addComponent(CanselTakeSendResourceDialogButton))
+                .addContainerGap())
+        );
+
+        AddEditStorageDialog.setMinimumSize(new java.awt.Dimension(230, 115));
+        AddEditStorageDialog.setModal(true);
+
+        OkStorageDialogButton.setText("Ок");
+        OkStorageDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                OkStorageDialogButtonActionPerformed(evt);
+            }
+        });
+
+        CanselStorageDialogButton.setText("Отмена");
+        CanselStorageDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                CanselStorageDialogButtonActionPerformed(evt);
+            }
+        });
+
+        StorageLocationTextField.setText("адрес");
+
+        jLabel11.setText("Расположение склада:");
+
+        javax.swing.GroupLayout AddEditStorageDialogLayout = new javax.swing.GroupLayout(AddEditStorageDialog.getContentPane());
+        AddEditStorageDialog.getContentPane().setLayout(AddEditStorageDialogLayout);
+        AddEditStorageDialogLayout.setHorizontalGroup(
+            AddEditStorageDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, AddEditStorageDialogLayout.createSequentialGroup()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(OkStorageDialogButton)
+                .addGap(18, 18, 18)
+                .addComponent(CanselStorageDialogButton)
+                .addContainerGap())
+            .addGroup(AddEditStorageDialogLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jLabel11)
+                .addGap(18, 18, 18)
+                .addComponent(StorageLocationTextField)
+                .addGap(11, 11, 11))
+        );
+        AddEditStorageDialogLayout.setVerticalGroup(
+            AddEditStorageDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, AddEditStorageDialogLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(AddEditStorageDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(StorageLocationTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel11))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 50, Short.MAX_VALUE)
+                .addGroup(AddEditStorageDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(CanselStorageDialogButton)
+                    .addComponent(OkStorageDialogButton))
+                .addContainerGap())
+        );
+
+        AddEditWorkDialog.setMinimumSize(new java.awt.Dimension(210, 160));
+        AddEditWorkDialog.setModal(true);
+
+        OkWorkDialogButton.setText("Ок");
+        OkWorkDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                OkWorkDialogButtonActionPerformed(evt);
+            }
+        });
+
+        CanselWorkDialogButton.setText("Отмена");
+        CanselWorkDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                CanselWorkDialogButtonActionPerformed(evt);
+            }
+        });
+
+        jLabel19.setText("Описание");
+
+        jLabel20.setText("Стоимость");
+
+        DescriptionTextField.setText("Описание");
+
+        WorkCoastTextField.setText("Стоиммость");
+
+        javax.swing.GroupLayout AddEditWorkDialogLayout = new javax.swing.GroupLayout(AddEditWorkDialog.getContentPane());
+        AddEditWorkDialog.getContentPane().setLayout(AddEditWorkDialogLayout);
+        AddEditWorkDialogLayout.setHorizontalGroup(
+            AddEditWorkDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(AddEditWorkDialogLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(AddEditWorkDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(AddEditWorkDialogLayout.createSequentialGroup()
+                        .addComponent(jLabel19)
+                        .addGap(23, 23, 23)
+                        .addComponent(DescriptionTextField)
+                        .addContainerGap())
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, AddEditWorkDialogLayout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(OkWorkDialogButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(CanselWorkDialogButton)
+                        .addGap(10, 10, 10))
+                    .addGroup(AddEditWorkDialogLayout.createSequentialGroup()
+                        .addComponent(jLabel20)
+                        .addGap(18, 18, 18)
+                        .addComponent(WorkCoastTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 128, Short.MAX_VALUE)
+                        .addContainerGap())))
+        );
+        AddEditWorkDialogLayout.setVerticalGroup(
+            AddEditWorkDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, AddEditWorkDialogLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(AddEditWorkDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel19)
+                    .addComponent(DescriptionTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
+                .addGroup(AddEditWorkDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(WorkCoastTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel20))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 57, Short.MAX_VALUE)
+                .addGroup(AddEditWorkDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(OkWorkDialogButton)
+                    .addComponent(CanselWorkDialogButton))
+                .addContainerGap())
+        );
+
+        AddEditResourceDialog.setMinimumSize(new java.awt.Dimension(300, 200));
+        AddEditResourceDialog.setModal(true);
+
+        jLabel21.setText("Название ресурса:");
+
+        jLabel22.setText("Цена за шт./ед. изм.:");
+
+        OkResourceDialogButton.setText("Ок");
+        OkResourceDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                OkResourceDialogButtonActionPerformed(evt);
+            }
+        });
+
+        CanselResourceDialogButton.setText("Отмена");
+        CanselResourceDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                CanselResourceDialogButtonActionPerformed(evt);
+            }
+        });
+
+        NameTextField.setText("название");
+
+        ResourceCoastTextField.setText("шт./ед. изм.");
+
+        jLabel23.setText("Тип:");
+
+        TypeTextField.setText("число");
+
+        javax.swing.GroupLayout AddEditResourceDialogLayout = new javax.swing.GroupLayout(AddEditResourceDialog.getContentPane());
+        AddEditResourceDialog.getContentPane().setLayout(AddEditResourceDialogLayout);
+        AddEditResourceDialogLayout.setHorizontalGroup(
+            AddEditResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(AddEditResourceDialogLayout.createSequentialGroup()
+                .addGroup(AddEditResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(AddEditResourceDialogLayout.createSequentialGroup()
+                        .addContainerGap()
+                        .addGroup(AddEditResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jLabel22)
+                            .addComponent(jLabel23)
+                            .addComponent(jLabel21))
+                        .addGap(18, 18, 18)
+                        .addGroup(AddEditResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(NameTextField, javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(ResourceCoastTextField, javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(TypeTextField)))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, AddEditResourceDialogLayout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(OkResourceDialogButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(CanselResourceDialogButton)))
+                .addContainerGap())
+        );
+        AddEditResourceDialogLayout.setVerticalGroup(
+            AddEditResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(AddEditResourceDialogLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(AddEditResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel21)
+                    .addComponent(NameTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
+                .addGroup(AddEditResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel22)
+                    .addComponent(ResourceCoastTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
+                .addGroup(AddEditResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel23)
+                    .addComponent(TypeTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 59, Short.MAX_VALUE)
+                .addGroup(AddEditResourceDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(CanselResourceDialogButton)
+                    .addComponent(OkResourceDialogButton))
+                .addContainerGap())
+        );
+
+        AddEditClientMasterDialog.setMinimumSize(new java.awt.Dimension(250, 235));
+        AddEditClientMasterDialog.setModal(true);
+
+        OkClientMasterDialogButton.setText("Ок");
+        OkClientMasterDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                OkClientMasterDialogButtonActionPerformed(evt);
+            }
+        });
+
+        CanselClientMasterDialogButton.setText("Отмена");
+        CanselClientMasterDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                CanselClientMasterDialogButtonActionPerformed(evt);
+            }
+        });
+
+        jLabel24.setText("Ф.И.О.:");
+
+        jLabel25.setText("Телефон:");
+
+        jLabel26.setText("Адрес:");
+
+        jLabel30.setText("Тип");
+
+        NameClientMasterTextField.setText("Ф.И.О.");
+
+        PhoneTextField.setText("Телефон");
+
+        AddressTextField.setText("Адрес");
+
+        TypeComboBox.setModel(new javax.swing.DefaultComboBoxModel(new String[] { R.Client.PHYSICAL, R.Client.LEGAL }));
+
+        javax.swing.GroupLayout AddEditClientMasterDialogLayout = new javax.swing.GroupLayout(AddEditClientMasterDialog.getContentPane());
+        AddEditClientMasterDialog.getContentPane().setLayout(AddEditClientMasterDialogLayout);
+        AddEditClientMasterDialogLayout.setHorizontalGroup(
+            AddEditClientMasterDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(AddEditClientMasterDialogLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(AddEditClientMasterDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(AddEditClientMasterDialogLayout.createSequentialGroup()
+                        .addComponent(jLabel30)
+                        .addGap(18, 18, 18)
+                        .addComponent(TypeComboBox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(AddEditClientMasterDialogLayout.createSequentialGroup()
+                        .addComponent(jLabel24)
+                        .addGap(18, 18, 18)
+                        .addComponent(NameClientMasterTextField))
+                    .addGroup(AddEditClientMasterDialogLayout.createSequentialGroup()
+                        .addComponent(jLabel26)
+                        .addGap(18, 18, 18)
+                        .addComponent(AddressTextField)))
+                .addGap(10, 10, 10))
+            .addGroup(AddEditClientMasterDialogLayout.createSequentialGroup()
+                .addGroup(AddEditClientMasterDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(AddEditClientMasterDialogLayout.createSequentialGroup()
+                        .addContainerGap()
+                        .addComponent(jLabel25)
+                        .addGap(18, 18, 18)
+                        .addComponent(PhoneTextField))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, AddEditClientMasterDialogLayout.createSequentialGroup()
+                        .addGap(0, 104, Short.MAX_VALUE)
+                        .addComponent(OkClientMasterDialogButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(CanselClientMasterDialogButton)))
+                .addContainerGap())
+        );
+        AddEditClientMasterDialogLayout.setVerticalGroup(
+            AddEditClientMasterDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, AddEditClientMasterDialogLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(AddEditClientMasterDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel24)
+                    .addComponent(NameClientMasterTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
+                .addGroup(AddEditClientMasterDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel25)
+                    .addComponent(PhoneTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
+                .addGroup(AddEditClientMasterDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel26)
+                    .addComponent(AddressTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
+                .addGroup(AddEditClientMasterDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel30)
+                    .addComponent(TypeComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 56, Short.MAX_VALUE)
+                .addGroup(AddEditClientMasterDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(CanselClientMasterDialogButton)
+                    .addComponent(OkClientMasterDialogButton))
+                .addContainerGap())
+        );
+
+        AddEditEstimateDialog.setMinimumSize(new java.awt.Dimension(420, 340));
+        AddEditEstimateDialog.setModal(true);
+
+        jLabel31.setText("Тип сметы:");
+
+        EstimateTypeComboBox.setModel(new javax.swing.DefaultComboBoxModel(new String[] { R.Estimate.MAIN, R.Estimate.ADDITIONAL }));
+
+        jLabel32.setText("Работы:");
+
+        EstimateWorksDialogTable.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+
+            },
+            new String [] {
+                "Описание", "Стоимость", "Полная стоимость"
+            }
+        ) {
+            Class[] types = new Class [] {
+                java.lang.String.class, java.lang.String.class, java.lang.String.class
+            };
+            boolean[] canEdit = new boolean [] {
+                false, false, false
+            };
+
+            public Class getColumnClass(int columnIndex) {
+                return types [columnIndex];
+            }
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit [columnIndex];
+            }
+        });
+        jScrollPane15.setViewportView(EstimateWorksDialogTable);
+
+        AddEstimateDialogButton.setText("Добавить");
+        AddEstimateDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                AddEstimateDialogButtonActionPerformed(evt);
+            }
+        });
+
+        DeleteEstimateDialogButton.setText("Удалить");
+        DeleteEstimateDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                DeleteEstimateDialogButtonActionPerformed(evt);
+            }
+        });
+
+        CanselEstimateDialogButton.setText("Отмена");
+        CanselEstimateDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                CanselEstimateDialogButtonActionPerformed(evt);
+            }
+        });
+
+        OkEstimateDialogButton.setText("Ок");
+        OkEstimateDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                OkEstimateDialogButtonActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout AddEditEstimateDialogLayout = new javax.swing.GroupLayout(AddEditEstimateDialog.getContentPane());
+        AddEditEstimateDialog.getContentPane().setLayout(AddEditEstimateDialogLayout);
+        AddEditEstimateDialogLayout.setHorizontalGroup(
+            AddEditEstimateDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(AddEditEstimateDialogLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(AddEditEstimateDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(AddEditEstimateDialogLayout.createSequentialGroup()
+                        .addComponent(jScrollPane15, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                        .addGap(18, 18, 18)
+                        .addGroup(AddEditEstimateDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(AddEstimateDialogButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(DeleteEstimateDialogButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                    .addGroup(AddEditEstimateDialogLayout.createSequentialGroup()
+                        .addComponent(jLabel32)
+                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addGroup(AddEditEstimateDialogLayout.createSequentialGroup()
+                        .addComponent(jLabel31)
+                        .addGap(18, 18, 18)
+                        .addComponent(EstimateTypeComboBox, 0, 306, Short.MAX_VALUE))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, AddEditEstimateDialogLayout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(OkEstimateDialogButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(CanselEstimateDialogButton)))
+                .addContainerGap())
+        );
+        AddEditEstimateDialogLayout.setVerticalGroup(
+            AddEditEstimateDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(AddEditEstimateDialogLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(AddEditEstimateDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(EstimateTypeComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel31))
+                .addGap(18, 18, 18)
+                .addComponent(jLabel32)
+                .addGap(18, 18, 18)
+                .addGroup(AddEditEstimateDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(AddEditEstimateDialogLayout.createSequentialGroup()
+                        .addComponent(AddEstimateDialogButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(DeleteEstimateDialogButton)
+                        .addGap(0, 103, Short.MAX_VALUE))
+                    .addComponent(jScrollPane15, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
+                .addGap(18, 18, 18)
+                .addGroup(AddEditEstimateDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(CanselEstimateDialogButton)
+                    .addComponent(OkEstimateDialogButton))
+                .addContainerGap())
+        );
+
+        AddEstimateWorkDialog.setMinimumSize(new java.awt.Dimension(225, 120));
+        AddEstimateWorkDialog.setModal(true);
+
+        jLabel33.setText("Название:");
+
+        WorkComboBox.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Описание работы" }));
+
+        OkAddEstimateWorkDialogButton.setText("Ок");
+        OkAddEstimateWorkDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                OkAddEstimateWorkDialogButtonActionPerformed(evt);
+            }
+        });
+
+        CanselAddDeleteWorkDialogButton.setText("Отмена");
+        CanselAddDeleteWorkDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                CanselAddDeleteWorkDialogButtonActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout AddEstimateWorkDialogLayout = new javax.swing.GroupLayout(AddEstimateWorkDialog.getContentPane());
+        AddEstimateWorkDialog.getContentPane().setLayout(AddEstimateWorkDialogLayout);
+        AddEstimateWorkDialogLayout.setHorizontalGroup(
+            AddEstimateWorkDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(AddEstimateWorkDialogLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(AddEstimateWorkDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(AddEstimateWorkDialogLayout.createSequentialGroup()
+                        .addComponent(jLabel33)
+                        .addGap(18, 18, 18)
+                        .addComponent(WorkComboBox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, AddEstimateWorkDialogLayout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(OkAddEstimateWorkDialogButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(CanselAddDeleteWorkDialogButton)))
+                .addContainerGap())
+        );
+        AddEstimateWorkDialogLayout.setVerticalGroup(
+            AddEstimateWorkDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(AddEstimateWorkDialogLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(AddEstimateWorkDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel33)
+                    .addComponent(WorkComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 15, Short.MAX_VALUE)
+                .addGroup(AddEstimateWorkDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(OkAddEstimateWorkDialogButton)
+                    .addComponent(CanselAddDeleteWorkDialogButton))
+                .addContainerGap())
+        );
+
+        AddOrderDialog.setMinimumSize(new java.awt.Dimension(220, 155));
+        AddOrderDialog.setModal(true);
+        AddOrderDialog.setPreferredSize(new java.awt.Dimension(220, 120));
+
+        OkOrderDialogButton.setText("Ок");
+        OkOrderDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                OkOrderDialogButtonActionPerformed(evt);
+            }
+        });
+
+        CanselOrderDialogButton.setText("Отмена");
+        CanselOrderDialogButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                CanselOrderDialogButtonActionPerformed(evt);
+            }
+        });
+
+        DateCreateTextField.setText("Дата создания");
+
+        jLabel35.setText("Дата:");
+
+        ManagerClientComboBox.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Ф.И.О. клиента" }));
+
+        javax.swing.GroupLayout AddOrderDialogLayout = new javax.swing.GroupLayout(AddOrderDialog.getContentPane());
+        AddOrderDialog.getContentPane().setLayout(AddOrderDialogLayout);
+        AddOrderDialogLayout.setHorizontalGroup(
+            AddOrderDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(AddOrderDialogLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(AddOrderDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(ManagerClientComboBox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(AddOrderDialogLayout.createSequentialGroup()
+                        .addGap(0, 64, Short.MAX_VALUE)
+                        .addComponent(OkOrderDialogButton)
+                        .addGap(18, 18, 18)
+                        .addComponent(CanselOrderDialogButton))
+                    .addGroup(AddOrderDialogLayout.createSequentialGroup()
+                        .addComponent(jLabel35)
+                        .addGap(18, 18, 18)
+                        .addComponent(DateCreateTextField)))
+                .addContainerGap())
+        );
+        AddOrderDialogLayout.setVerticalGroup(
+            AddOrderDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(AddOrderDialogLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(AddOrderDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(DateCreateTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel35))
+                .addGap(18, 18, 18)
+                .addComponent(ManagerClientComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 17, Short.MAX_VALUE)
+                .addGroup(AddOrderDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(OkOrderDialogButton)
+                    .addComponent(CanselOrderDialogButton))
+                .addContainerGap())
+        );
+
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("Аутентификация");
         setMinimumSize(new java.awt.Dimension(200, 200));
@@ -1486,117 +2765,8 @@ public class MainFrame extends javax.swing.JFrame {
                     initDatabaseRoleAuth();
                     //проверка для роли внутри базы.
                     if(CurrentId > 0 && CurrentRole != null){
-                        initBusinessModel();                    
                         setVisible(false);
-                        ConfigRole RoleInfo = config.getConfigItem(index).getRole();
-                        ConfigDatabase ConfigInfo = config.getConfigItem(index).getDatabase();
-                        switch(RoleComboBox.getSelectedIndex()+1){
-                            case R.ModelType.ManagerModel://Менеджер
-                                ManagerView.setTitle(
-                                        R.RoleType.Manager + " : " + RoleInfo.getLogin() + " - " +
-                                        "Connected to: "+ ConfigInfo.getHost() + " ["+ConfigInfo.getPath()+"]");
-                                ManagerView.setVisible(true);
-                                ManagerNameTextField.setText(CurrentRole.getName());
-                                ManagerPhoneTextField.setText(CurrentRole.getPhoneNumber());
-                                ManagerAddressTextField.setText(((Manager)CurrentRole).getOfficeAddress());
-                                break;
-                            case R.ModelType.MasterModel://Прораб
-                                MasterView.setTitle(
-                                        R.RoleType.Master + " : " + RoleInfo.getLogin() + " - " +
-                                        "Connected to: "+ ConfigInfo.getHost() + " ["+ConfigInfo.getPath()+"]");
-                                MasterView.setVisible(true);
-                                MasterNameTextField.setText(CurrentRole.getName());
-                                MasterPhoneTextField.setText(CurrentRole.getPhoneNumber());
-                                
-                                javax.swing.table.DefaultTableModel MasterWorksTableModel = 
-                                        (javax.swing.table.DefaultTableModel)MasterWorksTable.getModel();                     
-                                try {
-                                    MasterEstimateList = new EstimateMapper().loadListbyMaster(CurrentId, DBManager);
-                                    for (Estimate MasterEstimateList1 : MasterEstimateList) {
-                                        Client cl = new OrderMapper().loadClientByOrderId(MasterEstimateList1.getOrderId(), DBManager);
-                                        MasterEstimateList1.getWorkList().stream().forEach((work1) -> {
-                                            MasterWorksTableModel.addRow(new Object[]{
-                                                work1.getDescription(),
-                                                R.Work.StatusName(work1.isFinish()),
-                                                String.valueOf(work1.getServiceCoast()),
-                                                String.valueOf(work1.CoastCalculation()),
-                                                cl.getName(),
-                                                cl.getPhoneNumber(),
-                                                cl.getAddres()}
-                                            );  });
-                                    }
-                                    MasterWorksTable.getSelectionModel().addListSelectionListener((ListSelectionEvent event) -> {
-                                        if(MasterWorksTable.getSelectedRow() >= 0){
-                                            int WorkIndex = MasterWorksTable.getSelectedRow();
-                                            int EstimateIndex = 0;
-                                            for (Estimate es : MasterEstimateList) {
-                                                int size = es.getWorkList().size();
-                                                if(WorkIndex >= size){
-                                                    EstimateIndex++;
-                                                    WorkIndex = WorkIndex - size;
-                                                }else{
-                                                    break;
-                                                }
-                                            }
-                                            MasterFinishWorkButton.setEnabled(
-                                                    !MasterEstimateList
-                                                            .get(EstimateIndex)
-                                                            .getWork(WorkIndex)
-                                                            .isFinish()
-                                            );
-                                        }
-                                    });
-                                } catch (SQLException ex) {
-                                    Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-                                break;
-                            case R.ModelType.ClientModel://Клиент
-                                ClientView.setTitle(
-                                        R.RoleType.Client + " : " + RoleInfo.getLogin() + " - " +
-                                        "Connected to: "+ ConfigInfo.getHost() + " ["+ConfigInfo.getPath()+"]");
-                                ClientView.setVisible(true);
-                                ClientNameTextField.setText(CurrentRole.getName());
-                                ClientPhoneTextField.setText(CurrentRole.getPhoneNumber());
-                                ClientAddressTextField.setText(((Client)CurrentRole).getAddres());
-                                ClientTypeLabel.setText( R.Client.CLIENT_TYPE + " " + 
-                                        R.Client.ClientTypeName(((Client)CurrentRole).getType()));
-                                try {
-                                    ClientOrderList = new OrderMapper().loadListbyClient(CurrentId, DBManager);
-                                    javax.swing.table.DefaultTableModel ClientOrderTableModel = 
-                                            (javax.swing.table.DefaultTableModel)ClientOrderTable.getModel();
-                                    ClientOrderList.stream().forEach((list1) -> {
-                                        ClientOrderTableModel.addRow(new Object[]{
-                                            String.valueOf(list1.getNumber()),
-                                            R.Order.StatusName(list1.getStatus()), 
-                                            String.valueOf(list1.getCurrentCoast()), 
-                                            DateFormat.format(list1.getCreate()), 
-                                            DateFormat.format(list1.getLastUpdate()),
-                                            (list1.getEnd()!= null) ? DateFormat.format(list1.getEnd()):""});
-                                        list1.CoastCalculation();
-                                    });                                    
-                                    ClientOrderTable.getSelectionModel().addListSelectionListener((ListSelectionEvent event) -> {
-                                        if(ClientOrderTable.getSelectedRow() >= 0){
-                                            switch(ClientOrderList.get(ClientOrderTable.getSelectedRow()).getStatus()){
-                                                case Order.WAITING_PAY:
-                                                    ClientAcceptWorkButton.setEnabled(false);
-                                                    ClientPayButton.setEnabled(true);
-                                                    break;
-                                                case Order.WAITING_ACKNOWLEDGMENT_TAKE:
-                                                    ClientAcceptWorkButton.setEnabled(true);
-                                                    ClientPayButton.setEnabled(false);
-                                                    break;
-                                                default:
-                                                    ClientAcceptWorkButton.setEnabled(false);
-                                                    ClientPayButton.setEnabled(false);
-                                                    break;
-                                            }
-                                        }
-                                    });
-                                } catch (SQLException ex) {
-                                    Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-                                break;
-                        }
+                        initRoleViewBlock();
                     }else{//отсутствие роли в базе данных.
                         ErrorMassage(R.ErrMsg.AuthDatabaseError);
                     }
@@ -1690,6 +2860,7 @@ public class MainFrame extends javax.swing.JFrame {
                         role.setOfficeAddress(ManagerAddressTextField.getText().trim());
                         try {
                             new ManagerMapper().save(role,DBManager);
+                            UPDATED = true;
                         } catch (SQLException ex) {                
                             Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
                             ErrorMassage(ex.toString());
@@ -1711,6 +2882,7 @@ public class MainFrame extends javax.swing.JFrame {
                         role.setAddres(ClientAddressTextField.getText().trim());
                         try {
                             new ClientMapper().save(role,DBManager);
+                            UPDATED = true;
                         } catch (SQLException ex) {                
                             Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
                             ErrorMassage(ex.toString());
@@ -1730,6 +2902,7 @@ public class MainFrame extends javax.swing.JFrame {
                     role.setPhoneNumber(MasterPhoneTextField.getText().trim());
                     try {
                         new MasterMapper().save(role,DBManager);
+                        UPDATED = true;
                     } catch (SQLException ex) {                
                         Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
                         ErrorMassage(ex.toString());
@@ -1774,9 +2947,9 @@ public class MainFrame extends javax.swing.JFrame {
                 if(ClientOrderList.get(SelectedRow).getStatus() == Order.WAITING_PAY){
                     //Диалог с запросом числа.
                     try{
-                        double pay = Double.parseDouble(JOptionPane.showInputDialog(R.Dialog.ClientPayInputMsg));
+                        double pay = Double.parseDouble(JOptionPane.showInputDialog(R.Dialog.ClientPayInputMsg).trim());
                         if(pay < 0){
-                            ErrorMassage(R.ErrMsg.InputPayError_2);
+                            ErrorMassage(R.ErrMsg.InputDataError_2);
                         }else{                            
                             if(((Client)CurrentRole).PayEstimatePart(ClientOrderList.get(SelectedRow),pay)){
                                 String Title = "Оплата";
@@ -1789,11 +2962,11 @@ public class MainFrame extends javax.swing.JFrame {
                                             (javax.swing.table.DefaultTableModel)ClientOrderTable.getModel();
                                 ClientOrderTableModel.setValueAt(String.valueOf(ClientOrderList.get(SelectedRow).getCurrentCoast()), SelectedRow, 2);
                             }else{
-                                ErrorMassage(R.ErrMsg.InputPayError_3);
+                                ErrorMassage(R.ErrMsg.InputPayError);
                             }
                         } 
                     }catch(NumberFormatException ex){
-                        ErrorMassage(R.ErrMsg.InputPayError_1);
+                        ErrorMassage(R.ErrMsg.InputDataError_1);
                     }
                 }
             }
@@ -1860,10 +3033,10 @@ public class MainFrame extends javax.swing.JFrame {
                             .getWork(OrderWorkTable.getSelectedRow())
                             .getResources().stream().forEach((res) -> {
                         resourceModel.addRow(new Object[]{
-                            String.valueOf(res.getType()),
                             res.getName(),
+                            String.valueOf(res.getAmount()),
                             String.valueOf(res.getCoast()),
-                            String.valueOf(res.getAmount())
+                            String.valueOf(res.getType())
                         });
                     });
                     }
@@ -1903,16 +3076,1067 @@ public class MainFrame extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_MasterFinishWorkButtonActionPerformed
 
+    private void ManagerUpdateButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ManagerUpdateButtonActionPerformed
+        //обновление позиции
+        if(UPDATED){
+            initManagerViewModel();
+            UPDATED = false;
+        }else{
+            JOptionPane.showConfirmDialog(null,
+                    R.Dialog.UpdateMsg,
+                    R.Dialog.Update,
+                    JOptionPane.DEFAULT_OPTION,
+                    JOptionPane.INFORMATION_MESSAGE,
+                    null);
+        }
+    }//GEN-LAST:event_ManagerUpdateButtonActionPerformed
+
+    private void AddOrderButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_AddOrderButtonActionPerformed
+        DateCreateTextField.setText(DateFormat.format(new Date()));
+        ManagerClientComboBox.removeAllItems();
+        ManagerClientList.stream().forEach((Client1) -> {
+            ManagerClientComboBox.addItem(Client1.getName());
+        });
+        AddOrderDialog.setVisible(true);
+    }//GEN-LAST:event_AddOrderButtonActionPerformed
+
+    private void ChangeStatusOrderButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ChangeStatusOrderButtonActionPerformed
+        int SelectedRow = ManagerOrderTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            switch(ManagerOrderList.get(SelectedRow).getStatus()){
+                case Order.OPEN:
+                    ManagerOrderList.get(SelectedRow).setStatus(Order.INPROGRESS);
+                    ManagerOrderList.get(SelectedRow).setCurrentCoast(ManagerOrderList.get(SelectedRow).CoastCalculation());
+                break;
+                case Order.WAITING_ACKNOWLEDGMENT_PAY:
+                    ManagerOrderList.get(SelectedRow).setStatus(Order.CLOSE);
+                break;
+            }
+            try {
+                new OrderMapper().save(ManagerOrderList.get(SelectedRow), DBManager);
+                ManagerOrderTable.getModel().setValueAt(R.Order.StatusName(ManagerOrderList.get(SelectedRow).getStatus()), SelectedRow, 1);
+            } catch (SQLException ex) {
+                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                ErrorMassage(ex.toString());
+            }
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_ChangeStatusOrderButtonActionPerformed
+
+    private void DeleteOrderButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteOrderButtonActionPerformed
+        int SelectedRow = ManagerOrderTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            try {
+                new OrderMapper().delete(ManagerOrderList.get(SelectedRow).getId(), DBManager);
+                ManagerOrderList.remove(SelectedRow);
+                ((javax.swing.table.DefaultTableModel)ManagerOrderTable.getModel()).removeRow(SelectedRow);
+            } catch (SQLException ex) {
+                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                ErrorMassage(R.ErrMsg.DeleteError);
+            }
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_DeleteOrderButtonActionPerformed
+
+    private void AddWorkButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_AddWorkButtonActionPerformed
+        DialogAction = R.Dialog.AddAction;
+        DescriptionTextField.setText("");
+        WorkCoastTextField.setText("");
+        AddEditWorkDialog.setTitle(R.Dialog.Add);
+        AddEditWorkDialog.setVisible(true);
+    }//GEN-LAST:event_AddWorkButtonActionPerformed
+
+    private void EditWorkButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_EditWorkButtonActionPerformed
+        int SelectedRow = ManagerWorkTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            DialogAction = R.Dialog.EditAction;
+            DescriptionTextField.setText(ManagerWorkList.get(SelectedRow).getDescription());
+            WorkCoastTextField.setText(String.valueOf(ManagerWorkList.get(SelectedRow).getServiceCoast()));
+            AddEditWorkDialog.setTitle(R.Dialog.Edit);
+            AddEditWorkDialog.setVisible(true);
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_EditWorkButtonActionPerformed
+
+    private void DeleteWorkButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteWorkButtonActionPerformed
+        int SelectedRow = ManagerWorkTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            try {
+                new WorkMapper().delete(ManagerWorkList.get(SelectedRow).getId(), DBManager);
+                ManagerWorkList.remove(SelectedRow);
+                ((javax.swing.table.DefaultTableModel)ManagerWorkTable.getModel()).removeRow(SelectedRow);
+                UPDATED = true;
+            } catch (SQLException ex) {
+                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                ErrorMassage(R.ErrMsg.DeleteError);
+            }            
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_DeleteWorkButtonActionPerformed
+
+    private void AddResourceButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_AddResourceButtonActionPerformed
+        DialogAction = R.Dialog.AddAction;
+        NameTextField.setText("");
+        ResourceCoastTextField.setText("");
+        TypeTextField.setText("");
+        AddEditResourceDialog.setTitle(R.Dialog.Add);
+        AddEditResourceDialog.setVisible(true);
+    }//GEN-LAST:event_AddResourceButtonActionPerformed
+
+    private void EditResourceButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_EditResourceButtonActionPerformed
+        int SelectedRow = ManagerResourceTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            DialogAction = R.Dialog.EditAction;
+            NameTextField.setText(ManagerResourceList.get(SelectedRow).getName());
+            ResourceCoastTextField.setText(String.valueOf(ManagerResourceList.get(SelectedRow).getCoast()));
+            TypeTextField.setText(String.valueOf(ManagerResourceList.get(SelectedRow).getType()));
+            AddEditResourceDialog.setTitle(R.Dialog.Edit);
+            AddEditResourceDialog.setVisible(true);
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_EditResourceButtonActionPerformed
+
+    private void DeleteResourceButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteResourceButtonActionPerformed
+        int SelectedRow = ManagerResourceTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            try {
+                new ResourceMapper().delete(ManagerResourceList.get(SelectedRow).getId(), DBManager);
+                ManagerResourceList.remove(SelectedRow);
+                ((javax.swing.table.DefaultTableModel)ManagerResourceTable.getModel()).removeRow(SelectedRow);
+                UPDATED = true;
+            } catch (SQLException ex) {
+                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                ErrorMassage(R.ErrMsg.DeleteError);
+            }            
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_DeleteResourceButtonActionPerformed
+
+    private void AddStorageButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_AddStorageButtonActionPerformed
+        DialogAction = R.Dialog.AddAction;
+        StorageLocationTextField.setText("");
+        AddEditStorageDialog.setTitle(R.Dialog.Add);
+        AddEditStorageDialog.setVisible(true);
+    }//GEN-LAST:event_AddStorageButtonActionPerformed
+
+    private void EditStorageButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_EditStorageButtonActionPerformed
+        int SelectedRow = ManagerStorageTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            DialogAction = R.Dialog.EditAction;
+            StorageLocationTextField.setText(ManagerStorageList.get(SelectedRow).getLocation());
+            AddEditStorageDialog.setTitle(R.Dialog.Edit);
+            AddEditStorageDialog.setVisible(true);
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_EditStorageButtonActionPerformed
+
+    private void DeleteStorageButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteStorageButtonActionPerformed
+        int SelectedRow = ManagerStorageTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            try {
+                new StorageMapper().delete(ManagerStorageList.get(SelectedRow).getId(), DBManager);
+                ManagerStorageList.remove(SelectedRow);
+                ((javax.swing.table.DefaultTableModel)ManagerStorageTable.getModel()).removeRow(SelectedRow);
+                UPDATED = true;
+            } catch (SQLException ex) {
+                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                ErrorMassage(R.ErrMsg.DeleteError);
+            }            
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_DeleteStorageButtonActionPerformed
+
+    private void SendResourceToStorageButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_SendResourceToStorageButtonActionPerformed
+        int SelectedRow = ManagerStorageTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            DialogAction = R.Dialog.SendAction;
+            TypeNameComboBox.removeAllItems();
+            if(ManagerResourceList != null){
+                ManagerResourceList.stream().forEach((e) -> {
+                    TypeNameComboBox.addItem(e.getName());
+                });
+            }
+            TypeNameComboBox.setEnabled(true);
+            NameRadio.setSelected(true);        
+            AmountTextField.setText("");
+            TakeSendResourceDialog.setTitle(R.Dialog.Send);
+            TakeSendResourceDialog.setVisible(true);
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_SendResourceToStorageButtonActionPerformed
+
+    private void TakeResourceFromStorageButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_TakeResourceFromStorageButtonActionPerformed
+        int SelectedRow = ManagerStorageTable.getSelectedRow();
+        int SelectedRowResource = ManagerStorageResourceTable.getSelectedRow();
+        if(SelectedRow >= 0 && SelectedRowResource>= 0){
+            DialogAction = R.Dialog.TakeAction;
+            TypeNameComboBox.removeAllItems();
+            if(ManagerStorageList.get(SelectedRow).getResources() != null){
+                ManagerStorageList.get(SelectedRow).getResources().stream().forEach((e) -> {
+                    TypeNameComboBox.addItem(e.getName());
+                });
+            }
+            TypeNameComboBox.setSelectedIndex(SelectedRowResource);
+            TypeNameComboBox.setEnabled(false);
+            NameRadio.setSelected(true);        
+            AmountTextField.setText("");
+            TakeSendResourceDialog.setTitle(R.Dialog.Send);
+            TakeSendResourceDialog.setVisible(true);
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_TakeResourceFromStorageButtonActionPerformed
+
+    private void AddClientButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_AddClientButtonActionPerformed
+        Master = false;
+        DialogAction = R.Dialog.AddAction;
+        NameClientMasterTextField.setText("");
+        PhoneTextField.setText("");
+        AddressTextField.setText("");
+        jLabel26.setVisible(true);
+        AddressTextField.setVisible(true);
+        jLabel30.setVisible(true);
+        TypeComboBox.setVisible(true);
+        AddEditClientMasterDialog.setTitle(R.Dialog.Add);
+        AddEditClientMasterDialog.setVisible(true);
+    }//GEN-LAST:event_AddClientButtonActionPerformed
+
+    private void EditClientButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_EditClientButtonActionPerformed
+        int SelectedRow = ManagerClientTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            Master = false;
+            DialogAction = R.Dialog.EditAction;
+            NameClientMasterTextField.setText(ManagerClientList.get(SelectedRow).getName());
+            PhoneTextField.setText(ManagerClientList.get(SelectedRow).getPhoneNumber());
+            AddressTextField.setText(ManagerClientList.get(SelectedRow).getAddres());
+            TypeComboBox.setSelectedIndex(ManagerClientList.get(SelectedRow).getType()-1);
+            jLabel26.setVisible(true);
+            AddressTextField.setVisible(true);
+            jLabel30.setVisible(true);
+            TypeComboBox.setVisible(true);
+            AddEditClientMasterDialog.setTitle(R.Dialog.Edit);
+            AddEditClientMasterDialog.setVisible(true);
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_EditClientButtonActionPerformed
+
+    private void DeleteClientButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteClientButtonActionPerformed
+        int SelectedRow = ManagerClientTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            try {
+                new ClientMapper().delete(ManagerClientList.get(SelectedRow).getID(), DBManager);
+                ManagerClientList.remove(SelectedRow);
+                ((javax.swing.table.DefaultTableModel)ManagerClientTable.getModel()).removeRow(SelectedRow);
+                UPDATED = true;
+            } catch (SQLException ex) {
+                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                ErrorMassage(R.ErrMsg.DeleteError);
+            }
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_DeleteClientButtonActionPerformed
+
+    private void AddMasterButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_AddMasterButtonActionPerformed
+        Master = true;
+        DialogAction = R.Dialog.AddAction;
+        NameClientMasterTextField.setText("");
+        PhoneTextField.setText("");
+        jLabel26.setVisible(false);
+        AddressTextField.setVisible(false);
+        jLabel30.setVisible(false);
+        TypeComboBox.setVisible(false);
+        AddEditClientMasterDialog.setTitle(R.Dialog.Add);
+        AddEditClientMasterDialog.setVisible(true);
+    }//GEN-LAST:event_AddMasterButtonActionPerformed
+
+    private void EditMasterButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_EditMasterButtonActionPerformed
+        int SelectedRow = ManagerMasterTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            Master = true;
+            DialogAction = R.Dialog.EditAction;
+            NameClientMasterTextField.setText(ManagerMasterList.get(SelectedRow).getName());
+            PhoneTextField.setText(ManagerMasterList.get(SelectedRow).getPhoneNumber());
+            jLabel26.setVisible(false);
+            AddressTextField.setVisible(false);
+            jLabel30.setVisible(false);
+            TypeComboBox.setVisible(false);
+            AddEditClientMasterDialog.setTitle(R.Dialog.Edit);
+            AddEditClientMasterDialog.setVisible(true);
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_EditMasterButtonActionPerformed
+
+    private void DeleteMasterButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteMasterButtonActionPerformed
+        int SelectedRow = ManagerMasterTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            try {
+                new ManagerMapper().delete(ManagerMasterList.get(SelectedRow).getID(), DBManager);
+                ManagerMasterList.remove(SelectedRow);
+                ((javax.swing.table.DefaultTableModel)ManagerMasterTable.getModel()).removeRow(SelectedRow);
+                UPDATED = true;
+            } catch (SQLException ex) {
+                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                ErrorMassage(R.ErrMsg.DeleteError);
+            }
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_DeleteMasterButtonActionPerformed
+
+    private void AddEstimateButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_AddEstimateButtonActionPerformed
+        int SelectedRow = ManagerOrderTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            javax.swing.table.DefaultTableModel m = 
+                    (javax.swing.table.DefaultTableModel) EstimateWorksDialogTable.getModel();
+            while(m.getRowCount() > 0){m.removeRow(0);}
+            DialogAction = R.Dialog.AddAction;
+            WorkComboBox.removeAllItems();
+            AddEditEstimateDialog.setTitle(R.Dialog.Add);        
+            AddEditEstimateDialog.setVisible(true);
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_AddEstimateButtonActionPerformed
+
+    private void EditEstimateButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_EditEstimateButtonActionPerformed
+        int SelectedRow = ManagerOrderTable.getSelectedRow();
+        int SelectedRowEstimate = ManagerEstimateTable.getSelectedRow();
+        if(SelectedRow >= 0 && SelectedRowEstimate >= 0){
+            javax.swing.table.DefaultTableModel m = 
+                    (javax.swing.table.DefaultTableModel) EstimateWorksDialogTable.getModel();
+            while(m.getRowCount() > 0){m.removeRow(0);}
+            DialogAction = R.Dialog.EditAction;
+            WorkComboBox.removeAllItems();
+            ManagerOrderList.get(SelectedRow).getEstimate(SelectedRowEstimate).getWorkList().stream().forEach((e) -> {
+                m.addRow(new Object[]{
+                    e.getDescription(),
+                    e.getServiceCoast(),
+                    e.CoastCalculation()
+                });
+            });
+            EstimateTypeComboBox.setSelectedIndex(ManagerOrderList.get(SelectedRow).getEstimate(SelectedRowEstimate).getType()-1);
+            AddEditEstimateDialog.setTitle(R.Dialog.Edit);
+            AddEditEstimateDialog.setVisible(true);
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_EditEstimateButtonActionPerformed
+
+    private void DeleteEstimateButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteEstimateButtonActionPerformed
+        int SelectedRow = ManagerOrderTable.getSelectedRow();
+        int EstimateSelectedRow = ManagerEstimateTable.getSelectedRow();
+        if(SelectedRow >= 0 && EstimateSelectedRow >= 0){
+            try {
+                new EstimateMapper().delete(ManagerOrderList.get(SelectedRow).getEstimate(EstimateSelectedRow).getId(), DBManager);
+                ManagerOrderList.get(SelectedRow).deleteEstimate(EstimateSelectedRow);
+                ((javax.swing.table.DefaultTableModel)ManagerEstimateTable.getModel()).removeRow(EstimateSelectedRow);
+                UPDATED = true;
+            } catch (SQLException ex) {
+                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                ErrorMassage(R.ErrMsg.DeleteError);
+            }
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_DeleteEstimateButtonActionPerformed
+
+    private void AddWorkResourceButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_AddWorkResourceButtonActionPerformed
+        int SelectedRow = ManagerWorkTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            DialogAction = R.Dialog.AddAction;
+            TypeNameComboBox.removeAllItems();
+            ManagerResourceList.stream().forEach((e) -> {
+                TypeNameComboBox.addItem(e.getName());
+            });
+            TypeNameComboBox.setEnabled(true);
+            NameRadio.setSelected(true);
+            AmountTextField.setText("");
+            TakeSendResourceDialog.setTitle(R.Dialog.Add);
+            TakeSendResourceDialog.setVisible(true);
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_AddWorkResourceButtonActionPerformed
+
+    private void EditWorkResourceButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_EditWorkResourceButtonActionPerformed
+        int SelectedRow = ManagerWorkTable.getSelectedRow();
+        int SelectedRowResource = ManagerWorkResourceTable.getSelectedRow();
+        if(SelectedRow >= 0 && SelectedRowResource >= 0){
+            DialogAction = R.Dialog.EditAction;
+            TypeNameComboBox.removeAllItems();
+            if(ManagerWorkList.get(SelectedRow).getResources() != null){
+                ManagerWorkList.get(SelectedRow).getResources().stream().forEach((e) -> {
+                    TypeNameComboBox.addItem(e.getName());
+                });
+            }
+            TypeNameComboBox.setSelectedIndex(SelectedRowResource);
+            TypeNameComboBox.setEnabled(false);
+            NameRadio.setSelected(true);
+            AmountTextField.setText(String.valueOf(ManagerWorkList.get(SelectedRow).getResource(SelectedRowResource).getAmount()));
+            TakeSendResourceDialog.setTitle(R.Dialog.Edit);
+            TakeSendResourceDialog.setVisible(true);
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_EditWorkResourceButtonActionPerformed
+
+    private void DeleteWorkResourceButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteWorkResourceButtonActionPerformed
+        int SelectedRow = ManagerWorkTable.getSelectedRow();
+        int SelectedRowResource = ManagerWorkResourceTable.getSelectedRow();
+        if(SelectedRow >= 0 && SelectedRowResource >= 0){            
+            try {                
+                new WorkMapper().clearWorkResource(
+                        ManagerWorkList.get(SelectedRow).getId(),
+                        ManagerWorkList.get(SelectedRow).getResource(SelectedRowResource).getId(),
+                        DBManager);
+                ManagerWorkList.get(SelectedRow).getResources().remove(SelectedRowResource);
+                ((javax.swing.table.DefaultTableModel)ManagerWorkResourceTable.getModel()).removeRow(SelectedRowResource);
+                UPDATED = true;
+            } catch (SQLException ex) {
+                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                ErrorMassage(R.ErrMsg.DeleteError);
+            }
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_DeleteWorkResourceButtonActionPerformed
+
+    private void OkTakeSendResourceDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkTakeSendResourceDialogButtonActionPerformed
+        if(!AmountTextField.getText().trim().equals("")){
+            try {
+                int Amount = Integer.parseInt(AmountTextField.getText().trim());
+                if(Amount > 0){
+                    int SelectedRow;
+                    int SelectedRowResource;
+                    int SelectedIndex = TypeNameComboBox.getSelectedIndex();
+                    switch(DialogAction){
+                        case R.Dialog.AddAction:
+                            SelectedRow = ManagerWorkTable.getSelectedRow();
+                            Resource WorkResource = new Resource(
+                                    ManagerResourceList.get(SelectedIndex).getId(),
+                                    Amount,
+                                    ManagerResourceList.get(SelectedIndex).getType(),
+                                    ManagerResourceList.get(SelectedIndex).getCoast(),
+                                    ManagerResourceList.get(SelectedIndex).getName());
+                            try {
+                                int WorkResPosition = AccumulateIfAlreadyExists(ManagerWorkList.get(SelectedRow).getResources(), WorkResource);
+                                if( WorkResPosition < 0){                                    
+                                    ManagerWorkList.get(SelectedRow).add(WorkResource);
+                                    new WorkMapper().saveArray(ManagerWorkList, DBManager);
+                                    ((javax.swing.table.DefaultTableModel)ManagerWorkResourceTable.getModel())
+                                        .addRow(new Object[]{
+                                            WorkResource.getName(),
+                                            String.valueOf(WorkResource.getAmount()),
+                                            String.valueOf(WorkResource.getCoast()),
+                                            String.valueOf(WorkResource.getType())
+                                        });
+                                }else{
+                                    new WorkMapper().saveArray(ManagerWorkList, DBManager);
+                                    javax.swing.table.DefaultTableModel m = 
+                                            ((javax.swing.table.DefaultTableModel)ManagerWorkResourceTable.getModel());
+                                    m.setValueAt(WorkResource.getName(), WorkResPosition, 0);
+                                    m.setValueAt(String.valueOf(WorkResource.getAmount()), WorkResPosition, 1);
+                                    m.setValueAt(String.valueOf(WorkResource.getCoast()), WorkResPosition, 2);
+                                    m.setValueAt(String.valueOf(WorkResource.getType()), WorkResPosition, 3);
+                                }
+                                ((javax.swing.table.DefaultTableModel)ManagerWorkTable.getModel())
+                                        .setValueAt(String.valueOf(ManagerWorkList.get(SelectedRow).CoastCalculation()),SelectedRow, 2);
+                                UPDATED = true;
+                            } catch (SQLException ex) {
+                                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                ErrorMassage(ex.toString());
+                            }
+                            break;
+                        case R.Dialog.EditAction:
+                            SelectedRow = ManagerWorkTable.getSelectedRow();
+                            SelectedRowResource = ManagerWorkResourceTable.getSelectedRow();
+                            ManagerWorkList.get(SelectedRow).getResource(SelectedRowResource).setAmount(Amount);
+                            try {
+                                new WorkMapper().saveArray(ManagerWorkList, DBManager);
+                                UPDATED = true;
+                            } catch (SQLException ex) {
+                                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                ErrorMassage(ex.toString());
+                            }
+                            break;
+                        case R.Dialog.SendAction:
+                            SelectedRow = ManagerStorageTable.getSelectedRow();
+                            Resource StorageResource = new Resource(
+                                    ManagerResourceList.get(SelectedIndex).getId(),
+                                    Amount,
+                                    ManagerResourceList.get(SelectedIndex).getType(),
+                                    ManagerResourceList.get(SelectedIndex).getCoast(),
+                                    ManagerResourceList.get(SelectedIndex).getName());
+                            try {
+                                int StorResPosition = AccumulateIfAlreadyExists(ManagerStorageList.get(SelectedRow).getResources(), StorageResource);
+                                if( StorResPosition < 0 ){
+                                    ManagerStorageList.get(SelectedRow).addResource(StorageResource);
+                                    new StorageMapper().saveArray(ManagerStorageList, DBManager);
+                                    ((javax.swing.table.DefaultTableModel)ManagerStorageResourceTable.getModel())
+                                        .addRow(new Object[]{
+                                            StorageResource.getName(),
+                                            String.valueOf(StorageResource.getAmount()),
+                                            String.valueOf(StorageResource.getCoast()),
+                                            String.valueOf(StorageResource.getType())
+                                        });
+                                }else{
+                                    new StorageMapper().saveArray(ManagerStorageList, DBManager);
+                                    javax.swing.table.DefaultTableModel m = 
+                                            ((javax.swing.table.DefaultTableModel)ManagerStorageResourceTable.getModel());
+                                    m.setValueAt(ManagerResourceList.get(SelectedIndex).getName(), SelectedIndex, 0);
+                                    m.setValueAt(String.valueOf(StorageResource.getAmount()), StorResPosition, 1);
+                                    m.setValueAt(String.valueOf(StorageResource.getCoast()), StorResPosition, 2);
+                                    m.setValueAt(String.valueOf(StorageResource.getType()), StorResPosition, 3);
+                                }
+                                UPDATED = true;
+                            } catch (SQLException ex) {
+                                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                ErrorMassage(ex.toString());
+                            }
+                            break;
+                        case R.Dialog.TakeAction:
+                            SelectedRow = ManagerStorageTable.getSelectedRow();
+                            SelectedRowResource = ManagerStorageResourceTable.getSelectedRow();
+                            int tempAmount = ManagerStorageList.get(SelectedRow).getResource(SelectedRowResource).getAmount() - Amount;
+                            if(tempAmount < 0){
+                                ErrorMassage(R.ErrMsg.StorageAmountError);
+                            }else{
+                                try {
+                                    if(tempAmount > 0){
+                                        ManagerStorageList.get(SelectedRow).getResource(SelectedRowResource).setAmount(tempAmount);
+                                        new StorageMapper().saveArray(ManagerStorageList, DBManager);
+                                        ((javax.swing.table.DefaultTableModel)ManagerStorageResourceTable.getModel())
+                                                .setValueAt(String.valueOf(ManagerStorageList.get(SelectedRow)
+                                                                .getResource(SelectedRowResource).getAmount()),
+                                                        SelectedRowResource, 1);
+                                        UPDATED = true;
+                                    }else{
+                                        if(tempAmount == 0){
+                                            ManagerStorageList.get(SelectedRow).getResource(SelectedRowResource).getId();
+                                            new StorageMapper().clearStorageResource(
+                                                    ManagerStorageList.get(SelectedRow).getId(),
+                                                    ManagerStorageList.get(SelectedRow).getResource(SelectedRowResource).getId(),
+                                                    DBManager);
+                                            ManagerStorageList.get(SelectedRow).getResources().remove(SelectedRowResource);
+                                            ((javax.swing.table.DefaultTableModel)ManagerStorageResourceTable.getModel())
+                                                    .removeRow(SelectedRowResource);
+                                            UPDATED = true;
+                                        }
+                                    }
+                                } catch (SQLException ex) {
+                                    Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                    ErrorMassage(ex.toString());
+                                }
+                            }
+                            break;
+                    }
+                    TakeSendResourceDialog.setVisible(false);
+                }else{ErrorMassage(R.ErrMsg.InputWorkAmountError_2);}
+            }catch(NumberFormatException ex){
+                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                ErrorMassage(R.ErrMsg.InputDataError_1);
+            }
+        }else{ErrorMassage(R.ErrMsg.InputWorkAmountError_1);}
+    }//GEN-LAST:event_OkTakeSendResourceDialogButtonActionPerformed
+
+    private void CanselTakeSendResourceDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_CanselTakeSendResourceDialogButtonActionPerformed
+        TakeSendResourceDialog.setVisible(false);
+    }//GEN-LAST:event_CanselTakeSendResourceDialogButtonActionPerformed
+
+    private void OkStorageDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkStorageDialogButtonActionPerformed
+        if(!StorageLocationTextField.getText().trim().equals("")){
+            try {
+                Storage stor = new Storage(0,StorageLocationTextField.getText().trim(), null);
+                if(DialogAction == R.Dialog.AddAction){
+                    new StorageMapper().save(stor, DBManager);
+                    ManagerStorageList.add(stor);
+                    ((javax.swing.table.DefaultTableModel)ManagerStorageTable.getModel())
+                            .addRow(new Object[]{stor.getLocation()});
+                    UPDATED = true;
+                }else{
+                    if(DialogAction == R.Dialog.EditAction){
+                        int SelectedRow =  ManagerStorageTable.getSelectedRow();
+                        stor.setId(ManagerStorageList.get(SelectedRow).getId());
+                        stor.setResources(ManagerStorageList.get(SelectedRow).getResources());
+                        new StorageMapper().save(stor, DBManager);
+                        ManagerStorageList.set(SelectedRow, stor);
+                        javax.swing.table.DefaultTableModel m = 
+                                (javax.swing.table.DefaultTableModel)ManagerStorageTable.getModel();
+                        m.setValueAt(stor.getLocation(), SelectedRow, 0);
+                        UPDATED = true;
+                    }
+                }
+            } catch (SQLException ex) {
+                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                ErrorMassage(ex.toString());
+            }
+            AddEditStorageDialog.setVisible(false);
+        }else{
+            ErrorMassage(R.ErrMsg.InputStorageError);
+        }
+    }//GEN-LAST:event_OkStorageDialogButtonActionPerformed
+
+    private void CanselStorageDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_CanselStorageDialogButtonActionPerformed
+        AddEditStorageDialog.setVisible(false);
+    }//GEN-LAST:event_CanselStorageDialogButtonActionPerformed
+
+    private void OkWorkDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkWorkDialogButtonActionPerformed
+        if(!DescriptionTextField.getText().trim().equals("")){
+            if(!WorkCoastTextField.getText().trim().equals("")){
+                try {
+                    double ServiceCoast = Double.parseDouble(WorkCoastTextField.getText().trim());                
+                    if(ServiceCoast > 0){
+                        try {
+                            Work wr = new Work(0, null,ServiceCoast,DescriptionTextField.getText().trim());
+                            if(DialogAction == R.Dialog.AddAction){
+                                new WorkMapper().save(wr, DBManager);
+                                ManagerWorkList.add(wr);
+                                ((javax.swing.table.DefaultTableModel)ManagerWorkTable.getModel())
+                                        .addRow(new Object[]{
+                                            wr.getDescription(),
+                                            String.valueOf(wr.getServiceCoast()),
+                                            String.valueOf(wr.CoastCalculation())
+                                        });
+                                UPDATED = true;
+                            }else{
+                                if(DialogAction == R.Dialog.EditAction){
+                                    int SelectedRow = ManagerWorkTable.getSelectedRow();
+                                    wr.setId(ManagerWorkList.get(SelectedRow).getId());
+                                    wr.setResources(ManagerWorkList.get(SelectedRow).getResources());
+                                    new WorkMapper().save(wr, DBManager);
+                                    ManagerWorkList.set(SelectedRow, wr);
+                                    javax.swing.table.DefaultTableModel m = 
+                                            (javax.swing.table.DefaultTableModel)ManagerWorkTable.getModel();
+                                    m.setValueAt(wr.getDescription(), SelectedRow, 0);
+                                    m.setValueAt(String.valueOf(wr.getServiceCoast()), SelectedRow, 1);
+                                    m.setValueAt(String.valueOf(wr.CoastCalculation()), SelectedRow, 2);
+                                    UPDATED = true;
+                                }
+                            }
+                        } catch (SQLException ex) {
+                                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                    }else{ErrorMassage(R.ErrMsg.InputWorkCoastError_2);}
+                } catch(NumberFormatException ex){
+                    Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    ErrorMassage(R.ErrMsg.InputDataError_1);
+                }
+            }else{
+                ErrorMassage(R.ErrMsg.InputWorkCoastError_1);
+            }
+        }else{
+            ErrorMassage(R.ErrMsg.InputWorkDescriptionError);
+        }
+    }//GEN-LAST:event_OkWorkDialogButtonActionPerformed
+
+    private void CanselWorkDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_CanselWorkDialogButtonActionPerformed
+        AddEditWorkDialog.setVisible(false);
+    }//GEN-LAST:event_CanselWorkDialogButtonActionPerformed
+
+    private void OkResourceDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkResourceDialogButtonActionPerformed
+        boolean flag = false;
+        if(!NameTextField.getText().trim().equals("")){
+        if(!ResourceCoastTextField.getText().trim().equals("")){            
+        if(!TypeTextField.getText().trim().equals("")){ flag = true;}
+        else{ErrorMassage(R.ErrMsg.InputResourceTypeError_1);}}
+        else{ErrorMassage(R.ErrMsg.InputResourceCoastError_1);}}
+        else{ErrorMassage(R.ErrMsg.InputResourceNameError);}
+        if(flag){
+            try{    
+                double Сoast = Double.parseDouble(ResourceCoastTextField.getText().trim());
+                int Type =  Integer.parseInt(TypeTextField.getText().trim());
+                if(Сoast < 0){
+                    if(Type < 0){
+                        Resource res = new Resource(0,0,Type,Сoast,NameTextField.getText().trim());                        
+                        try {
+                            if(DialogAction == R.Dialog.AddAction){   
+                                new ResourceMapper().save(res, DBManager);
+                                ManagerResourceList.add(res);
+                                ((javax.swing.table.DefaultTableModel)ManagerResourceTable.getModel())
+                                        .addRow(new Object[]{
+                                            res.getName(),
+                                            String.valueOf(res.getCoast()),
+                                            String.valueOf(res.getType())
+                                        });
+                                UPDATED = true;
+                            }else{
+                                if(DialogAction == R.Dialog.EditAction){
+                                    int SelectedRow = ManagerResourceTable.getSelectedRow();
+                                    res.setId(ManagerResourceList.get(SelectedRow).getId());
+                                    new ResourceMapper().save(res, DBManager);
+                                    ManagerResourceList.set(SelectedRow, res);                                    
+                                    javax.swing.table.DefaultTableModel m = 
+                                            (javax.swing.table.DefaultTableModel)ManagerResourceTable.getModel();
+                                    m.setValueAt(res.getName(), SelectedRow, 0);
+                                    m.setValueAt(String.valueOf(res.getCoast()), SelectedRow, 1);
+                                    m.setValueAt(String.valueOf(res.getType()), SelectedRow, 2);
+                                    UPDATED = true;
+                                }
+                            }
+                        } catch (SQLException ex) {
+                            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                            ErrorMassage(ex.toString());
+                        }
+                        AddEditResourceDialog.setVisible(false);
+                    }else{ErrorMassage(R.ErrMsg.InputResourceTypeError_2);}
+                }else{ErrorMassage(R.ErrMsg.InputResourceCoastError_2);}
+            }catch(NumberFormatException ex){
+                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                ErrorMassage(R.ErrMsg.InputDataError_1);
+            }
+        }
+    }//GEN-LAST:event_OkResourceDialogButtonActionPerformed
+
+    private void CanselResourceDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_CanselResourceDialogButtonActionPerformed
+        AddEditResourceDialog.setVisible(false);
+    }//GEN-LAST:event_CanselResourceDialogButtonActionPerformed
+
+    private void OkClientMasterDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkClientMasterDialogButtonActionPerformed
+        boolean flag = false;
+        if(!NameClientMasterTextField.getText().trim().equals("")){
+            if(!PhoneTextField.getText().trim().equals("")){
+                if(Master){
+                    flag = true;
+                }else{
+                    if(!AddressTextField.getText().trim().equals("")){
+                        flag = true;
+                    }else{
+                        ErrorMassage(R.ErrMsg.NaneError);
+                    }
+                }
+            }else{
+                ErrorMassage(R.ErrMsg.PhoneError);
+            }
+        }else{
+            ErrorMassage(R.ErrMsg.AddressError);
+        }
+        if(flag){
+            if(Master){
+                Master mr = new Master(0, NameClientMasterTextField.getText().trim(), PhoneTextField.getText().trim());
+                try {
+                    if(DialogAction == R.Dialog.AddAction){
+                        new MasterMapper().save(mr, DBManager);
+                        ManagerMasterList.add(mr);
+                        ((javax.swing.table.DefaultTableModel)ManagerMasterTable.getModel()).addRow(
+                                new Object[]{
+                                    mr.getName(),
+                                    mr.getPhoneNumber()
+                                });
+                        UPDATED = true;
+                    }else{
+                        if(DialogAction == R.Dialog.EditAction){
+                            int SelectedRow = ManagerMasterTable.getSelectedRow();
+                            mr.setID(ManagerMasterList.get(SelectedRow).getID());
+                            new MasterMapper().save(mr, DBManager);
+                            ManagerMasterList.set(SelectedRow, mr);
+                            javax.swing.table.DefaultTableModel m = 
+                                                (javax.swing.table.DefaultTableModel)ManagerMasterTable.getModel();
+                            m.setValueAt(mr.getName(), SelectedRow, 0);
+                            m.setValueAt(mr.getPhoneNumber(), SelectedRow, 1);
+                            UPDATED = true;
+                        }
+                    }
+                } catch (SQLException ex) {
+                    Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    ErrorMassage(ex.toString());
+                }
+            }else{
+                Client cl = new Client((TypeComboBox.getSelectedIndex() + 1),
+                        AddressTextField.getText().trim(),
+                        0,
+                        NameClientMasterTextField.getText().trim(),
+                        PhoneTextField.getText().trim()
+                );
+                try {
+                    if(DialogAction == R.Dialog.AddAction){
+                        new ClientMapper().save(cl, DBManager);
+                        ManagerClientList.add(cl);
+                        ((javax.swing.table.DefaultTableModel)ManagerClientTable.getModel()).addRow(
+                                new Object[]{
+                                    cl.getName(),
+                                    cl.getPhoneNumber(),
+                                    cl.getAddres(),
+                                    R.Client.ClientTypeName(cl.getType())
+                                }
+                        );
+                        UPDATED = true;
+                    }else{
+                        if(DialogAction == R.Dialog.EditAction){
+                            int SelectedRow = ManagerClientTable.getSelectedRow();
+                            cl.setID(ManagerClientList.get(SelectedRow).getID());
+                            new ClientMapper().save(cl, DBManager);
+                            ManagerClientList.set(SelectedRow, cl);
+                            javax.swing.table.DefaultTableModel m = 
+                                                (javax.swing.table.DefaultTableModel)ManagerClientTable.getModel();
+                            m.setValueAt(cl.getName(), SelectedRow, 0);
+                            m.setValueAt(cl.getPhoneNumber(), SelectedRow, 1);
+                            m.setValueAt(cl.getAddres(), SelectedRow, 2);
+                            m.setValueAt(R.Client.ClientTypeName(cl.getType()), SelectedRow, 3);
+                            UPDATED = true;
+                        }
+                    }
+                } catch (SQLException ex) {
+                    Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    ErrorMassage(ex.toString());
+                }
+            }
+            AddEditClientMasterDialog.setVisible(false);
+        }
+    }//GEN-LAST:event_OkClientMasterDialogButtonActionPerformed
+
+    private void CanselClientMasterDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_CanselClientMasterDialogButtonActionPerformed
+        AddEditClientMasterDialog.setVisible(false);
+    }//GEN-LAST:event_CanselClientMasterDialogButtonActionPerformed
+
+    private void OkEstimateDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkEstimateDialogButtonActionPerformed
+        //создать или редактировать смету
+        int SelectedRow = ManagerOrderTable.getSelectedRow();
+        if(SelectedRow >= 0){
+            Estimate es = new Estimate((EstimateTypeComboBox.getSelectedIndex() + 1),
+                    (TempEstimateWorkList != null) ? new ArrayList<>(TempEstimateWorkList) : null);
+            es.setOrderId(ManagerOrderList.get(SelectedRow).getId());
+            es.CoastCalculation();
+            try {
+                //сохраняем оплату клиента.
+                double ClientPay = ManagerOrderList.get(SelectedRow).CoastCalculation() - 
+                            ManagerOrderList.get(SelectedRow).getCurrentCoast();
+                if(DialogAction == R.Dialog.AddAction){                    
+                    es.CoastCalculation();
+                    new EstimateMapper().save(es, DBManager);
+                    ManagerOrderList.get(SelectedRow).addEstimate(es);
+                    //делаем перерасчёт
+                    ManagerOrderList.get(SelectedRow).setCurrentCoast(ManagerOrderList.get(SelectedRow).CoastCalculation());
+                    ManagerOrderList.get(SelectedRow).ClientPay(ClientPay);
+                    //сохраняем изминения в заказе
+                    new OrderMapper().save(ManagerOrderList.get(SelectedRow), DBManager);
+                    ((javax.swing.table.DefaultTableModel)ManagerEstimateTable.getModel())
+                            .addRow(new Object[]{
+                                R.Estimate.TypeName(es.getType()), 
+                                R.Estimate.StatusName(es.isPaid(), es.isFinish()),
+                                String.valueOf(es.getCoast())
+                            });
+                    ((javax.swing.table.DefaultTableModel)ManagerOrderTable.getModel())
+                            .setValueAt(String.valueOf(ManagerOrderList.get(SelectedRow).getCurrentCoast()), SelectedRow, 2);
+                    UPDATED = true;
+                }else{
+                    if(DialogAction == R.Dialog.EditAction){
+                        
+                        int SelectedRowEstimate = ManagerEstimateTable.getSelectedRow();
+                        es.setId(ManagerOrderList.get(SelectedRow).getEstimate(SelectedRowEstimate).getId());
+                        es.CoastCalculation();
+                        new EstimateMapper().save(es, DBManager);
+                        //делаем перерасчёт
+                        ManagerOrderList.get(SelectedRow).setCurrentCoast(ManagerOrderList.get(SelectedRow).CoastCalculation());
+                        ManagerOrderList.get(SelectedRow).ClientPay(ClientPay);
+                        //сохраняем изминения в заказе
+                        new OrderMapper().save(ManagerOrderList.get(SelectedRow), DBManager);
+                        javax.swing.table.DefaultTableModel m = (javax.swing.table.DefaultTableModel)ManagerEstimateTable.getModel();
+                        m.setValueAt(R.Estimate.TypeName(es.getType()), SelectedRowEstimate, 0);
+                        m.setValueAt(R.Estimate.StatusName(es.isPaid(), es.isFinish()), SelectedRowEstimate, 1);
+                        m.setValueAt(String.valueOf(es.getCoast()), SelectedRowEstimate, 2);
+                        ((javax.swing.table.DefaultTableModel)ManagerOrderTable.getModel())
+                            .setValueAt(String.valueOf(ManagerOrderList.get(SelectedRow).getCurrentCoast()), SelectedRow, 2);
+                        UPDATED = true;
+                    }
+                }
+            } catch (SQLException ex) {
+                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                ErrorMassage(ex.toString());
+            }
+            AddEditEstimateDialog.setVisible(false);
+        }
+    }//GEN-LAST:event_OkEstimateDialogButtonActionPerformed
+
+    private void CanselEstimateDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_CanselEstimateDialogButtonActionPerformed
+        AddEditEstimateDialog.setVisible(false);
+    }//GEN-LAST:event_CanselEstimateDialogButtonActionPerformed
+
+    private void OkAddEstimateWorkDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkAddEstimateWorkDialogButtonActionPerformed
+        int SelectedIndex = WorkComboBox.getSelectedIndex();
+        if(SelectedIndex >= 0){
+            if(TempEstimateWorkList == null){
+                TempEstimateWorkList = new ArrayList<>();
+            }
+            TempEstimateWorkList.add(ManagerWorkList.get(SelectedIndex));
+            ((javax.swing.table.DefaultTableModel)EstimateWorksDialogTable.getModel())
+                    .addRow(new Object[]{
+                        ManagerWorkList.get(SelectedIndex).getDescription(),
+                        String.valueOf(ManagerWorkList.get(SelectedIndex).getServiceCoast()),
+                        String.valueOf(ManagerWorkList.get(SelectedIndex).CoastCalculation())
+                    }
+            );
+            AddEstimateWorkDialog.setVisible(false);
+        }
+    }//GEN-LAST:event_OkAddEstimateWorkDialogButtonActionPerformed
+
+    private void CanselAddDeleteWorkDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_CanselAddDeleteWorkDialogButtonActionPerformed
+        AddEstimateWorkDialog.setVisible(false);
+    }//GEN-LAST:event_CanselAddDeleteWorkDialogButtonActionPerformed
+
+    private void OkOrderDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkOrderDialogButtonActionPerformed
+        try {
+            Order ord;
+            int number = new OrderMapper().generateIDs(0, DBManager) + 1;
+            ord = new Order(DateFormat.parse(DateCreateTextField.getText()), number);
+            ord.setManagerID(CurrentId);
+            ord.setClientID(ManagerClientList.get(ManagerClientComboBox.getSelectedIndex()).getID());
+            ord.setCurrentCoast(0);
+            new OrderMapper().save(ord, DBManager);
+            ManagerOrderList.add(ord);
+            javax.swing.table.DefaultTableModel ManagerOrderTableModel= 
+                        (javax.swing.table.DefaultTableModel) ManagerOrderTable.getModel();
+            ManagerOrderTableModel.addRow(new Object[]{
+                    String.valueOf(ord.getNumber()),
+                    R.Order.StatusName(ord.getStatus()), 
+                    String.valueOf(ord.getCurrentCoast()), 
+                    DateFormat.format(ord.getCreate()), 
+                    DateFormat.format(ord.getLastUpdate()),
+                    ""});
+            UPDATED = true;
+        } catch (ParseException | SQLException ex) {
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+            ErrorMassage(ex.toString());
+        }
+        AddEstimateWorkDialog.setVisible(false);
+    }//GEN-LAST:event_OkOrderDialogButtonActionPerformed
+
+    private void CanselOrderDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_CanselOrderDialogButtonActionPerformed
+        AddOrderDialog.setVisible(false);
+    }//GEN-LAST:event_CanselOrderDialogButtonActionPerformed
+
+    private void NameRadioActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_NameRadioActionPerformed
+        NameOrTypeRadioActionPerformed(true);
+    }//GEN-LAST:event_NameRadioActionPerformed
+
+    private void TypeRadioActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_TypeRadioActionPerformed
+        NameOrTypeRadioActionPerformed(false);        
+    }//GEN-LAST:event_TypeRadioActionPerformed
+
+    private void AddEstimateDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_AddEstimateDialogButtonActionPerformed
+        //вызов диалога для добавления работы в смету
+        ManagerWorkList.stream().forEach((ManagerWorkList1) -> {
+            WorkComboBox.addItem(ManagerWorkList1);
+        });
+        AddEstimateWorkDialog.setVisible(true);
+    }//GEN-LAST:event_AddEstimateDialogButtonActionPerformed
+
+    private void DeleteEstimateDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteEstimateDialogButtonActionPerformed
+        //удаления работы из сметы
+        int SelectedRow = EstimateWorksDialogTable.getSelectedRow();
+        if(SelectedRow >= 0 && TempEstimateWorkList != null){
+            TempEstimateWorkList.remove(SelectedRow);
+            if(TempEstimateWorkList.isEmpty()){
+                TempEstimateWorkList = null;
+            }
+            ((javax.swing.table.DefaultTableModel)EstimateWorksDialogTable.getModel()).removeRow(SelectedRow);
+        }else{
+            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }
+    }//GEN-LAST:event_DeleteEstimateDialogButtonActionPerformed
+
+    private int AccumulateIfAlreadyExists(ArrayList<Resource> ResourceList, Resource res){
+        int flag = -1;
+        int i = 0;
+        for (Resource ResourceList1 : ResourceList) {
+            if (ResourceList1.getType() == res.getType()) {
+                res.setId(ResourceList1.getId());
+                ResourceList1.setAmount(ResourceList1.getAmount() + res.getAmount());
+                flag = i;
+            }
+            i++;
+        }
+        return flag;
+    }
+    
+    /**
+     * @param flag true - Name, false - type
+    */
+    private void NameOrTypeRadioActionPerformed(boolean flag){
+        int SelectedRow;
+        int SelectedIndex = TypeNameComboBox.getSelectedIndex();
+            switch(DialogAction){
+                case R.Dialog.AddAction:
+                    TypeNameComboBox.removeAllItems();
+                    ManagerResourceList.stream().forEach((e) -> {
+                            TypeNameComboBox.addItem((flag) ? e.getName() : String.valueOf(e.getType()));
+                    });
+                    break;
+                case R.Dialog.EditAction:
+                    TypeNameComboBox.removeAllItems();
+                    SelectedRow = ManagerWorkTable.getSelectedRow();
+                    if(ManagerWorkList.get(SelectedRow).getResources() != null){
+                        ManagerWorkList.get(SelectedRow).getResources().stream().forEach((e) -> {
+                            TypeNameComboBox.addItem((flag) ? e.getName() : String.valueOf(e.getType()));
+                        });
+                    }
+                    break;
+                case R.Dialog.SendAction:
+                    TypeNameComboBox.removeAllItems();
+                    if(ManagerResourceList != null){
+                        ManagerResourceList.stream().forEach((e) -> {
+                            TypeNameComboBox.addItem((flag) ? e.getName() : String.valueOf(e.getType()));
+                        });
+                    }
+                    break;
+                case R.Dialog.TakeAction:
+                    TypeNameComboBox.removeAllItems();
+                    SelectedRow = ManagerStorageTable.getSelectedRow();
+                    if(ManagerStorageList.get(SelectedRow).getResources() != null){
+                        ManagerStorageList.get(SelectedRow).getResources().stream().forEach((e) -> {
+                            TypeNameComboBox.addItem((flag) ? e.getName() : String.valueOf(e.getType()));
+                        });
+                    }
+                    break;
+            }
+        TypeNameComboBox.setSelectedIndex(SelectedIndex);
+    }
+    
     private void RoleViewWindowClosing(int RoleType){
-        //TODO сохранить значения в базу
+        //стераем данные из таблиц чтобы при повторном заходе в не отразились старые значения.
         //Закрытие окна роли (менеджера,прораба,клиента)
         switch(RoleType){
             case R.ModelType.ManagerModel:
                 ManagerView.setVisible(false);
+                javax.swing.table.DefaultTableModel ManagerOrderTableModel= 
+                        (javax.swing.table.DefaultTableModel) ManagerOrderTable.getModel();
+                while(ManagerOrderTableModel.getRowCount() > 0){ManagerOrderTableModel.removeRow(0);}                
+                javax.swing.table.DefaultTableModel ManagerWorkTableModel = 
+                        (javax.swing.table.DefaultTableModel) ManagerWorkTable.getModel();
+                while(ManagerWorkTableModel.getRowCount() > 0){ManagerWorkTableModel.removeRow(0);}
+                javax.swing.table.DefaultTableModel ManagerResourceTableModel = 
+                        (javax.swing.table.DefaultTableModel) ManagerResourceTable.getModel();
+                while(ManagerResourceTableModel.getRowCount() > 0){ManagerResourceTableModel.removeRow(0);}
+                javax.swing.table.DefaultTableModel ManagerStorageTableModel = 
+                        (javax.swing.table.DefaultTableModel) ManagerStorageTable.getModel();
+                while(ManagerStorageTableModel.getRowCount() > 0){ManagerStorageTableModel.removeRow(0);}
+                javax.swing.table.DefaultTableModel ManagerClientTableModel = 
+                        (javax.swing.table.DefaultTableModel) ManagerClientTable.getModel();
+                while(ManagerClientTableModel.getRowCount() > 0){ManagerClientTableModel.removeRow(0);}
+                javax.swing.table.DefaultTableModel ManagerMasterTableModel = 
+                        (javax.swing.table.DefaultTableModel)ManagerMasterTable.getModel();
+                while(ManagerMasterTableModel.getRowCount() > 0){ManagerMasterTableModel.removeRow(0);}
                 break;
             case R.ModelType.ClientModel:
                 ClientView.setVisible(false);
-                if(ClientOrderList != null){                    
+                javax.swing.table.DefaultTableModel  ClientOrderTableModel = 
+                        (javax.swing.table.DefaultTableModel)ClientOrderTable.getModel();
+                while(ClientOrderTableModel.getRowCount() > 0){ClientOrderTableModel.removeRow(0);}
+                javax.swing.table.DefaultTableModel  OrderWorkTableModel = 
+                        (javax.swing.table.DefaultTableModel)OrderWorkTable.getModel();
+                while(OrderWorkTableModel.getRowCount() > 0){OrderWorkTableModel.removeRow(0);}
+                if(ClientOrderList != null){
                     try {
                         new OrderMapper().saveArray(ClientOrderList, DBManager);
                     } catch (SQLException ex) {
@@ -1923,6 +4147,9 @@ public class MainFrame extends javax.swing.JFrame {
                 break;
             case R.ModelType.MasterModel:
                 MasterView.setVisible(false);
+                javax.swing.table.DefaultTableModel  MasterWorksTableModel = 
+                        (javax.swing.table.DefaultTableModel)MasterWorksTable.getModel();
+                while(MasterWorksTableModel.getRowCount() > 0){MasterWorksTableModel.removeRow(0);}
                 if(MasterEstimateList != null){  
                     try {
                         new EstimateMapper().saveArray(MasterEstimateList, DBManager);
@@ -1985,42 +4212,115 @@ public class MainFrame extends javax.swing.JFrame {
     
     
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton AddClientButton;
+    private javax.swing.JDialog AddEditClientMasterDialog;
+    private javax.swing.JDialog AddEditEstimateDialog;
+    private javax.swing.JDialog AddEditResourceDialog;
+    private javax.swing.JDialog AddEditStorageDialog;
+    private javax.swing.JDialog AddEditWorkDialog;
+    private javax.swing.JButton AddEstimateButton;
+    private javax.swing.JButton AddEstimateDialogButton;
+    private javax.swing.JDialog AddEstimateWorkDialog;
+    private javax.swing.JButton AddMasterButton;
+    private javax.swing.JButton AddOrderButton;
+    private javax.swing.JDialog AddOrderDialog;
+    private javax.swing.JButton AddResourceButton;
+    private javax.swing.JButton AddStorageButton;
+    private javax.swing.JButton AddWorkButton;
+    private javax.swing.JButton AddWorkResourceButton;
+    private javax.swing.JTextField AddressTextField;
+    private javax.swing.JTextField AmountTextField;
     private javax.swing.JCheckBox AskCheckBox;
     private javax.swing.JDialog AskDialog;
+    private javax.swing.JButton CanselAddDeleteWorkDialogButton;
     private javax.swing.JButton CanselButton;
+    private javax.swing.JButton CanselClientMasterDialogButton;
+    private javax.swing.JButton CanselEstimateDialogButton;
+    private javax.swing.JButton CanselOrderDialogButton;
+    private javax.swing.JButton CanselResourceDialogButton;
+    private javax.swing.JButton CanselStorageDialogButton;
+    private javax.swing.JButton CanselTakeSendResourceDialogButton;
+    private javax.swing.JButton CanselWorkDialogButton;
+    private javax.swing.JButton ChangeStatusOrderButton;
     private javax.swing.JButton ClientAcceptWorkButton;
     private javax.swing.JTextField ClientAddressTextField;
     private javax.swing.JButton ClientExitButton;
     private javax.swing.JTextField ClientNameTextField;
     private javax.swing.JButton ClientOrderDetailButton;
+    private javax.swing.JPanel ClientOrderPanel;
     private javax.swing.JTable ClientOrderTable;
     private javax.swing.JButton ClientPayButton;
     private javax.swing.JTextField ClientPhoneTextField;
+    private javax.swing.JPanel ClientProfilePanel;
     private javax.swing.JLabel ClientTypeLabel;
     private javax.swing.JFrame ClientView;
+    private javax.swing.JTextField DateCreateTextField;
+    private javax.swing.JButton DeleteClientButton;
+    private javax.swing.JButton DeleteEstimateButton;
+    private javax.swing.JButton DeleteEstimateDialogButton;
+    private javax.swing.JButton DeleteMasterButton;
+    private javax.swing.JButton DeleteOrderButton;
+    private javax.swing.JButton DeleteResourceButton;
+    private javax.swing.JButton DeleteStorageButton;
+    private javax.swing.JButton DeleteWorkButton;
+    private javax.swing.JButton DeleteWorkResourceButton;
+    private javax.swing.JTextField DescriptionTextField;
+    private javax.swing.JButton EditClientButton;
+    private javax.swing.JButton EditEstimateButton;
+    private javax.swing.JButton EditMasterButton;
+    private javax.swing.JButton EditResourceButton;
+    private javax.swing.JButton EditStorageButton;
+    private javax.swing.JButton EditWorkButton;
+    private javax.swing.JButton EditWorkResourceButton;
+    private javax.swing.JComboBox EstimateTypeComboBox;
+    private javax.swing.JTable EstimateWorksDialogTable;
     private javax.swing.JButton ExitButton;
     private javax.swing.JTextField LoginTextField;
     private javax.swing.JTextField ManagerAddressTextField;
+    private javax.swing.JComboBox ManagerClientComboBox;
+    private javax.swing.JTable ManagerClientTable;
+    private javax.swing.JPanel ManagerClientsPanel;
     private javax.swing.JTable ManagerEstimateTable;
     private javax.swing.JButton ManagerExitButton;
+    private javax.swing.JTable ManagerMasterTable;
+    private javax.swing.JPanel ManagerMastersPanel;
     private javax.swing.JTextField ManagerNameTextField;
+    private javax.swing.JPanel ManagerOrderPanel;
     private javax.swing.JTable ManagerOrderTable;
     private javax.swing.JTextField ManagerPhoneTextField;
+    private javax.swing.JPanel ManagerProfilePanel;
+    private javax.swing.JPanel ManagerResourcePanel;
     private javax.swing.JTable ManagerResourceTable;
+    private javax.swing.JPanel ManagerStoragePanel;
     private javax.swing.JTable ManagerStorageResourceTable;
     private javax.swing.JTable ManagerStorageTable;
+    private javax.swing.JButton ManagerUpdateButton;
     private javax.swing.JFrame ManagerView;
     private javax.swing.JTable ManagerWorkResourceTable;
     private javax.swing.JTable ManagerWorkTable;
+    private javax.swing.JPanel ManagerWorksPanel;
     private javax.swing.JButton MasterExitButton;
     private javax.swing.JButton MasterFinishWorkButton;
     private javax.swing.JTextField MasterNameTextField;
     private javax.swing.JTextField MasterPhoneTextField;
+    private javax.swing.JPanel MasterProfilePanel;
     private javax.swing.JFrame MasterView;
+    private javax.swing.JPanel MasterWorksPanel;
     private javax.swing.JTable MasterWorksTable;
+    private javax.swing.JTextField NameClientMasterTextField;
+    private javax.swing.JRadioButton NameRadio;
+    private javax.swing.JTextField NameTextField;
     private javax.swing.JButton NotExitButton;
+    private javax.swing.JButton OkAddEstimateWorkDialogButton;
     private javax.swing.JButton OkButton;
+    private javax.swing.JButton OkClientMasterDialogButton;
+    private javax.swing.JButton OkEstimateDialogButton;
+    private javax.swing.JButton OkOrderDialogButton;
+    private javax.swing.JButton OkResourceDialogButton;
+    private javax.swing.JButton OkStorageDialogButton;
+    private javax.swing.JButton OkTakeSendResourceDialogButton;
     private javax.swing.JButton OkViewButton;
+    private javax.swing.JButton OkWorkDialogButton;
     private javax.swing.JLabel OrderClientNameLabel;
     private javax.swing.JLabel OrderCreateDateLabel;
     private javax.swing.JLabel OrderCurrentCoastLabel;
@@ -2034,22 +4334,29 @@ public class MainFrame extends javax.swing.JFrame {
     private javax.swing.JLabel OrderTotalCoastLabel;
     private javax.swing.JTable OrderWorkTable;
     private javax.swing.JPasswordField PasswordFieldText;
+    private javax.swing.JTextField PhoneTextField;
+    private javax.swing.JTextField ResourceCoastTextField;
     private javax.swing.JComboBox RoleComboBox;
     private javax.swing.JButton SaveClientProfileButton;
     private javax.swing.JButton SaveManagerProfileButton;
     private javax.swing.JButton SaveMasterProfileButton;
     private javax.swing.JButton SaveWorkMasterButton;
+    private javax.swing.JButton SendResourceToStorageButton;
+    private javax.swing.JTextField StorageLocationTextField;
+    private javax.swing.JButton TakeResourceFromStorageButton;
+    private javax.swing.JDialog TakeSendResourceDialog;
+    private javax.swing.JComboBox TypeComboBox;
+    private javax.swing.JComboBox TypeNameComboBox;
+    private javax.swing.ButtonGroup TypeNameRadioGroup;
+    private javax.swing.JRadioButton TypeRadio;
+    private javax.swing.JTextField TypeTextField;
     private javax.swing.JDialog ViewOrderDialog;
+    private javax.swing.JTextField WorkCoastTextField;
+    private javax.swing.JComboBox WorkComboBox;
     private javax.swing.JLabel WorkMasterSumLabel;
-    private javax.swing.JButton jButton3;
-    private javax.swing.JButton jButton4;
-    private javax.swing.JButton jButton5;
-    private javax.swing.JButton jButton6;
-    private javax.swing.JButton jButton7;
-    private javax.swing.JButton jButton8;
-    private javax.swing.JButton jButton9;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel10;
+    private javax.swing.JLabel jLabel11;
     private javax.swing.JLabel jLabel12;
     private javax.swing.JLabel jLabel13;
     private javax.swing.JLabel jLabel14;
@@ -2057,32 +4364,37 @@ public class MainFrame extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel16;
     private javax.swing.JLabel jLabel17;
     private javax.swing.JLabel jLabel18;
+    private javax.swing.JLabel jLabel19;
     private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel20;
+    private javax.swing.JLabel jLabel21;
+    private javax.swing.JLabel jLabel22;
+    private javax.swing.JLabel jLabel23;
+    private javax.swing.JLabel jLabel24;
+    private javax.swing.JLabel jLabel25;
+    private javax.swing.JLabel jLabel26;
     private javax.swing.JLabel jLabel27;
     private javax.swing.JLabel jLabel28;
     private javax.swing.JLabel jLabel29;
     private javax.swing.JLabel jLabel3;
+    private javax.swing.JLabel jLabel30;
+    private javax.swing.JLabel jLabel31;
+    private javax.swing.JLabel jLabel32;
+    private javax.swing.JLabel jLabel33;
+    private javax.swing.JLabel jLabel35;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
     private javax.swing.JLabel jLabel7;
     private javax.swing.JLabel jLabel8;
-    private javax.swing.JPanel jPanel1;
-    private javax.swing.JPanel jPanel10;
-    private javax.swing.JPanel jPanel11;
-    private javax.swing.JPanel jPanel12;
-    private javax.swing.JPanel jPanel2;
-    private javax.swing.JPanel jPanel3;
-    private javax.swing.JPanel jPanel4;
-    private javax.swing.JPanel jPanel5;
-    private javax.swing.JPanel jPanel6;
-    private javax.swing.JPanel jPanel7;
-    private javax.swing.JPanel jPanel8;
-    private javax.swing.JPanel jPanel9;
+    private javax.swing.JLabel jLabel9;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane10;
     private javax.swing.JScrollPane jScrollPane11;
     private javax.swing.JScrollPane jScrollPane12;
+    private javax.swing.JScrollPane jScrollPane13;
+    private javax.swing.JScrollPane jScrollPane14;
+    private javax.swing.JScrollPane jScrollPane15;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;

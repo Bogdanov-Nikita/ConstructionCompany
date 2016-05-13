@@ -202,6 +202,15 @@ public class StorageMapper extends Mapper<Storage, DatabaseManager>{
         db.commitTransaction();
     }
 
+    public void clearStorageResource(int StorageId,int ResourceId,DatabaseManager db) throws SQLException{
+        db.startTransaction();
+        ContentValues value = new ContentValues();
+        value.put("\"" + Database.Storage.Table + "\".\"" + Database.Storage.id + "\"", String.valueOf(StorageId));
+        value.put("\"" + Database.Storage.Table + "\".\"" + Database.Storage.resource_id + "\"", String.valueOf(ResourceId));
+        db.execute(QueryBilder.delete(Database.WorksAndResource.Table, value));
+        db.commitTransaction();
+    }
+    
     @Override
     public int generateIDs(int size, DatabaseManager db) throws SQLException {
         ResultSet Rset = db.executeQuery("SELECT GEN_ID( STORAGEINFORMATION_ID_GENERATOR, " + String.valueOf(size) + " ) FROM RDB$DATABASE;"); 

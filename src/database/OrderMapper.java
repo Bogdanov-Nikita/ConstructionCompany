@@ -5,6 +5,7 @@
  */
 package database;
 
+import Resources.R;
 import businesslogic.Client;
 import businesslogic.Estimate;
 import businesslogic.Order;
@@ -149,6 +150,34 @@ public class OrderMapper extends Mapper<Order, DatabaseManager>{
         return list;
     }    
     
+    public ArrayList<Order> loadListbyManager(int ManagerId,DatabaseManager db) throws SQLException {        
+        ArrayList<Integer> IdList = new ArrayList<>();
+        db.startTransaction();
+        String columns[] = {
+            Database.Order.id  
+        };
+        ResultSet rs = db.executeQuery(
+                QueryBilder.select(
+                        Database.Order.Table,
+                        columns,
+                        "\"" + Database.Order.manager_id + "\"=?",
+                        new String[]{String.valueOf(ManagerId)},
+                        null,
+                        Database.Order.id
+                )
+        );        
+        while(rs.next()){
+            IdList.add(rs.getInt(1));
+        }
+        db.commitTransaction();        
+        ArrayList<Order> list = new ArrayList<>();
+        //возможно стоит заменить на более легковесный.
+        for (Integer IdList1 : IdList) {
+            list.add(load(IdList1, db));
+        }
+        return list;
+    }
+    
     public Client loadClientByOrderId(int Id,DatabaseManager db) throws SQLException {
         db.startTransaction();
         String columns[] = {
@@ -178,7 +207,7 @@ public class OrderMapper extends Mapper<Order, DatabaseManager>{
     @Override
     public boolean save(Order e, DatabaseManager db) throws SQLException {
         boolean flag;
-        SimpleDateFormat ft = new SimpleDateFormat ("dd.MM.yyyy HH:mm:ss");
+        SimpleDateFormat ft = new SimpleDateFormat (R.DataFormat);
         ContentValues value = new ContentValues();
         value.put(Database.Order.Table + "\".\"" + Database.Order.number,String.valueOf(e.getNumber()));
         value.put(Database.Order.Table + "\".\"" + Database.Order.status,String.valueOf(e.getStatus()));
