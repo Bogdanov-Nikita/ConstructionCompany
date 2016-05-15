@@ -115,15 +115,115 @@
 \end{figure}
 \newpage
 \subsection{Слой бизнес-логики}
-Модель предметной области.
+В качестве типового решения бизнес-логики была выбрана: 
+\\
+Модель предметной области(Domain Model).
+Классы бизнес логики соответствуют uml диаграмме (рис.2).
+\begin{figure}[!ht]
+\includegraphics[scale=0.8]{bisnesslogic.png}\caption{}
+\end{figure}
+\\
+\textbf{Сущности объекты с которыми работают роли:}
+\begin{itemize}
+\item Order - Заказ
+\item Estimate - Смета в заказе
+\item Storage - Склад содержащий список с ресурсами.
+\item Work - Работы содержащие список ресурсов
+\item Resource - Ресурсы.
+\end{itemize}
+
+\textbf{Роли:}
+\begin{itemize}
+\item Role - абстрактное представление роли.
+\item Manager - Роль менеджера.
+\item Client - Роль заказчика
+\item Master - Роль прораба
+\end{itemize}
+Единственный элемент являющийся вспомогательным
+ErrorMsg - Содержит код ошибки и сообщение об ошибке
+создан специально для обработки ошибок от склада для роли менеджера.
+\newpage
+\textbf{unit-тестирование (JUnit) бизнес логики:}
+\begin{figure}[!ht]
+\includegraphics[scale=0.6]{busnesslogicJUintTest.png}\caption{}
+\end{figure}
 \newpage
 \subsection{Слой источников данных}
-Data Mapper. Inheritance Mappers.
+В качестве решения типового решения
+источников данных выбран:
+\\
+Преобразователь данных \textbf{(Data Mapper)}, также дополнительно для облегчения работы были упрощенна работа с SQL - выражениями по средством добавления паттерна строитель для построения SQL - запросов.(класс QueryBilder),а так - же отделения работы с базой данных в класс DatabaseManager.
+
+
+Для каждого объекта создан свой Mapper с соответствующей приставкой в названии (пример OrderMapper для объекта Order из слоя бизнес логики) некоторые используют внутри Mapper'ы если объекты составные.
+\\
+В качестве хранилища данных выбрана СУБД Firebird.
+\begin{figure}[!ht]
+\includegraphics[scale=0.8]{databaseMapper.png}\caption{}
+\end{figure}
+\newpage
+\textbf{Представление таблиц данных в БД.}
+\\ 
+
+Таблицы:
+\begin{itemize}
+\item StorageInformation - информация о складе.
+\item Storage - информация о ресурсах на складе и их количество.
+\item Resource - информация о ресурсе. 
+\item Work - информация о работе.
+\item WorksAndResource - информация о ресурсах и их количестве нужном для работы.
+\item Estimate - информация о списке смет для заказов.
+\item EstimateWorks - информация о списке работ для смет.
+\item Manager - инофрмация о менеджерах.
+\item Master - информация о прорабах.
+\item Client - информация о заказчиках.
+\end{itemize}
+Дополнительно созданы View для упрощения запросов к данным сущностей бизнес логики распределённым между несколькими таблицами (склады, работы, сметы):
+\begin{itemize}
+\item StorageView
+\item WorkView
+\item EstimateView
+\end{itemize}
+\newpage
+\begin{figure}[!ht]
+\includegraphics[scale=0.6]{database.png}\caption{}
+\end{figure}
+\newpage
+\textbf{unit-тестирование (JUnit) слоя источников данных:}
+\begin{figure}[!ht]
+\includegraphics[scale=0.6]{databaseJUnitTest.png}\caption{}
+\end{figure}
+
+Не протестированными остались классы содержащие только статические 
+имена полей таблиц и названий таблиц в базе данных, а также метод saveArray для нескольких классов, но был позже протестирован при сборке проекта с GUI.
 \newpage
 \subsection{Сервисный слой и слой представления}
-Сонифигурационный файл, Swing GUI.
+Графика была создана при помощи визуального редактора в NetBeans.
+Конифигурационный файл, Swing GUI 
+
+\begin{figure}[!ht]
+\includegraphics[scale=0.6]{auth.png}\caption{Окно авторизации}
+\end{figure}
+
+\begin{figure}[!ht]
+\includegraphics[scale=0.6]{ManagerView.png}\caption{Графическое представление для роли Менеджера}
+\end{figure}
+
+\begin{figure}[!ht]
+\includegraphics[scale=0.6]{MasterView.png}\caption{Графическое представление для роли Прораба}
+\end{figure}
+
+\begin{figure}[!ht]
+\includegraphics[scale=0.6]{ClientView.png}\caption{Графическое представление для роли Заказчика}
+\end{figure}
 \newpage
-\section{Тестирование}
+Тестирование графики проводилось полностью при сборке работы всего проекта.
+\newpage
+\textbf{Тестирование конфигурационного файла:}
+\begin{figure}[!ht]
+\includegraphics[scale=0.6]{configJUnitTest.png}\caption{}
+\end{figure}
 \newpage
 \section{Заключение}
+Данная работа моделирует пример проектирование архитектуры информационной системы для бизнес процессов на примере строительной организации.
 \end{document}

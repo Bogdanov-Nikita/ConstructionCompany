@@ -50,7 +50,8 @@ public class EstimateJUnitTest {
         WL.add(new Work(0,Res, 100, "des"));
         WL.add(new Work(1,Res, 500, "des2"));
         Estimate e = new Estimate(Estimate.MAIN, WL);
-        
+        assertNotNull(e.getWork(1));
+        assertNull(e.getWork(5));
         assertFalse(e.isFinish());
         assertFalse(e.isPaid());
         assertEquals(Estimate.MAIN,e.getType());
@@ -78,6 +79,7 @@ public class EstimateJUnitTest {
         assertEquals(0,e.CoastCalculation(),0);
         e.add(new Work(7,Res, 100, "des"));
         e.setWorkList(null);
+        assertNull(e.getWork(4));
         e.set(4, null);
         e.add(new Work(1,Res, 100, "des"));
         e.set(0,new Work(2,Res, 100, "des"));

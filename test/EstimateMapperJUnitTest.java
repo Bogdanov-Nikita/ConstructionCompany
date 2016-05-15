@@ -58,7 +58,7 @@ public class EstimateMapperJUnitTest {
         Estimate e = new EstimateMapper().load(1, db);
         assertEquals(1,e.getId());
         assertEquals(1,e.getType());
-        assertEquals(1000.0,e.getCoast(),0);
+        assertEquals(4015.0,e.getCoast(),0);
         assertFalse(e.isPaid());
         assertFalse(e.isFinish());
         
@@ -91,7 +91,7 @@ public class EstimateMapperJUnitTest {
         int Ids[]={1,1,2,2,3};
         int OrdIds[]={1,1,1,1,2};
         int Types[]={1,1,2,2,1};
-        double Coasts[]={1000.0,1000.0,2000.0,2000.0,10000.0};
+        double Coasts[]={4015.0,4015.0,1000.0,1000.0,10000.0};
         for(int i = 0; i < list.size(); i++){
             assertEquals(Ids[i],list.get(i).getId());
             assertEquals(OrdIds[i],list.get(i).getOrderId());
@@ -172,6 +172,22 @@ public class EstimateMapperJUnitTest {
         db.startTransaction();
         db.execute("ALTER SEQUENCE ESTIMATE_ID_GENERATOR RESTART WITH 5");
         db.commitTransaction();
+        db.closeConnection();
+        db.close();
+    }
+    
+    @Test
+    public void loadSaveArray() throws SQLException{
+        DatabaseManager db = new DatabaseManager(
+                "SYSDBA", 
+                        "masterkey", 
+                        "localhost", 
+                        "D:\\Users\\Nik\\Documents\\NetBeansProjects\\ConstructionCompany\\test.fdb", 
+                        DatabaseManager.CharEncoding.UTF8.name(), 
+                        "TYPE4", 
+                        DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
+        db.connect();
+        new EstimateMapper().saveArray(new EstimateMapper().loadList(db),db);
         db.closeConnection();
         db.close();
     }

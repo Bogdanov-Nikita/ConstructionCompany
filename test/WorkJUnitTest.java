@@ -43,6 +43,7 @@ public class WorkJUnitTest {
     public void test1() {
         Work w = new Work(0,null, -10, null);
         assertNull(w.getResources());
+        assertNull(w.getResource(3));
         w.add(new Resource(1,1, 1, 1, "discr"));
         assertNotNull(w.getResources());
     }
@@ -55,9 +56,9 @@ public class WorkJUnitTest {
         w.setFinish(true);
         assertNotNull(w.getDescription());
         assertTrue(w.isFinish());
-        assertTrue(0 == w.getServiceCoast());
+        assertEquals(0,w.getServiceCoast(),0);
         w.setServiceCoast(100);
-        assertTrue(100 == w.getServiceCoast());
+        assertEquals(100,w.getServiceCoast(),0);
     }
     @Test
     public void test3() {
@@ -69,14 +70,16 @@ public class WorkJUnitTest {
         w.add(null);
         w.set(1, null);
         w.set(1, new Resource(4,400, 8, 1.7, "discr4"));
-        assertTrue(970 == w.CoastCalculation());
+        assertEquals(970,w.CoastCalculation(),0);
         w.delete(0);
         w.delete(0);
-        assertTrue(280 == w.CoastCalculation());
+        assertEquals(280,w.CoastCalculation(),0);
         w.setServiceCoast(-10);
-        assertTrue(180 == w.CoastCalculation());
+        assertEquals(180,w.CoastCalculation(),0);
         w.setServiceCoast(20);
-        assertTrue(200 == w.CoastCalculation());
+        assertEquals(200,w.CoastCalculation(),0);
+        assertNull(w.getResource(4));
+        assertNotNull(w.getResource(0));
     }
     @Test
     public void test4() {
@@ -88,10 +91,10 @@ public class WorkJUnitTest {
         assertTrue(100 == w.CoastCalculation());
         assertTrue(0 == w.amountResources(1));
         w.add(new Resource(5,100, 1, 0.1, "discr1"));
-        assertTrue(110 == w.CoastCalculation());
+        assertEquals(110,w.CoastCalculation(),0);
         w.setResources(Res);
-        assertTrue(200 == w.amountResources(3));
-        assertTrue(0 == w.amountResources(10));
+        assertEquals(200,w.amountResources(3),0);
+        assertEquals(0,w.amountResources(10),0);
         w.add(new Resource(1,100, 2, 0.1, "discr1"));
     }
     

@@ -19,7 +19,6 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import static org.junit.Assert.*;
-import org.junit.Ignore;
 
 /**
  *
@@ -165,6 +164,42 @@ public class OrderMapperJUnitTest {
         db.execute("ALTER SEQUENCE ORDER_ID_GENERATOR RESTART WITH 3");
         db.execute("ALTER SEQUENCE ESTIMATE_ID_GENERATOR RESTART WITH 5");
         db.commitTransaction();
+        db.closeConnection();
+        db.close();
+    }
+    
+    @Test
+    public void loads() throws SQLException {
+        DatabaseManager db = new DatabaseManager(
+                "SYSDBA", 
+                        "masterkey", 
+                        "localhost", 
+                        "D:\\Users\\Nik\\Documents\\NetBeansProjects\\ConstructionCompany\\test.fdb", 
+                        DatabaseManager.CharEncoding.UTF8.name(), 
+                        "TYPE4", 
+                        DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
+        db.connect();
+        ArrayList<Order> corl = new OrderMapper().loadListbyClient(1, db);
+        assertEquals(1,corl.get(0).getClientID());
+        ArrayList<Order> morl = new OrderMapper().loadListbyManager(1, db);
+        assertEquals(1, morl.get(0).getManagerID());
+        assertEquals("Client1",new OrderMapper().loadClientByOrderId(1, db).getName());        
+        db.closeConnection();
+        db.close();
+    }
+    
+    @Test
+    public void loadSaveArray() throws SQLException{
+        DatabaseManager db = new DatabaseManager(
+                "SYSDBA", 
+                        "masterkey", 
+                        "localhost", 
+                        "D:\\Users\\Nik\\Documents\\NetBeansProjects\\ConstructionCompany\\test.fdb", 
+                        DatabaseManager.CharEncoding.UTF8.name(), 
+                        "TYPE4", 
+                        DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
+        db.connect();
+        new OrderMapper().saveArray(new OrderMapper().loadList(db),db);
         db.closeConnection();
         db.close();
     }

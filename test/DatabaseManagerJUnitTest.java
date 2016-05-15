@@ -65,6 +65,7 @@ public class DatabaseManagerJUnitTest {
             Database.Master.Table,
             Database.Order.Table,
             Database.Resource.Table,
+            Database.Roles.Table,
             Database.Storage.Table,
             Database.StorageInformation.Table,
             Database.Work.Table,            
@@ -118,7 +119,12 @@ public class DatabaseManagerJUnitTest {
                 Database.Resource.type,
                 Database.Resource.name,
                 Database.Resource.coast
-            },{
+            },
+            {
+                Database.Roles.login,
+                Database.Roles.role_id
+            },
+            {
                 Database.Storage.id,
                 Database.Storage.resource_id,
                 Database.Storage.amount

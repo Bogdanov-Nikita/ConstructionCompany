@@ -71,6 +71,9 @@ public class OrderJUnitTest {
         assertEquals(1000,ord.getCurrentCoast(),0);   
         ord.clear();
         assertEquals(0,ord.CoastCalculation(),0);
+        ord.setNumber(4);
+        assertEquals(4,ord.getNumber());
+        assertEquals(0,ord.getTotalCoast(),0);
     }
     
     @Test
