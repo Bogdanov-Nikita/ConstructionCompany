@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import service.ExitMsg;
 
 /**
  *
@@ -37,11 +38,13 @@ public class Config {
         return -1;
     }
     
-    public void writetoFile(String FileName){
+    public ExitMsg writetoFile(String FileName){
         try (BufferedOutputStream File = new BufferedOutputStream(new FileOutputStream(FileName))) {
             File.write(toString().getBytes());
+            return new ExitMsg(ExitMsg.SUCCESS, null);
         }catch (IOException ex) {
             Logger.getLogger(Config.class.getName()).log(Level.SEVERE, "I/O  Exeption ", ex);
+            return new ExitMsg(ExitMsg.FILE_WRITE_ERROR ,ex.toString());
         }
     }
 

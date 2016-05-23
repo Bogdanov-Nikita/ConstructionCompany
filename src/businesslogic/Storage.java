@@ -59,7 +59,17 @@ public class Storage {
         return -1;
     }
     
+    public int findResoursePositionById(int Id){
+        for(int i = 0; i < Resources.size(); i++){
+            if(Resources.get(i).getId() == Id){
+                return i;
+            }
+        }
+        return -1;
+    }
+    
     /**
+     * Устарел
      * взять ресурс со склада
      * @param i - номер ресурса на складе
      * @param Amount - количество ресурса
@@ -90,7 +100,7 @@ public class Storage {
     
     /**
      * получить ресурс
-     * @param Type - тип ресурс который мы отправляем на склад
+     * @param Type - тип ресурса который мы отправляем на склад
      * @param Amount - количество ресурса котрое хотим добавить
      * @return успех или тип ошибки. 
      */

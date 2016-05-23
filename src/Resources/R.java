@@ -14,12 +14,15 @@ package Resources;
 public final class R{
     public final static String DataFormat = "dd.MM.yyyy HH:mm:ss";
     
+    public final static String ErrorDialogTitle = "Ошибка";
+    
     public static final class FileName{
         public final static String Config = "config.xml";
     }
     public static final class ErrMsg{
         //All error massage
         public final static String DatabaseError = "Невозможно подключится к базе данных.";
+        public final static String DatabaseLoadError = "Невозможно загрузить запись";
         
         public final static String AuthError_1 = "Данной записи не найдено.";
         public final static String AuthError_2 = "Не соответствие логина и роли.";
@@ -76,6 +79,16 @@ public final class R{
         public final static int onClickOk     = 0x1;
         public final static int onClickCansel = 0x2;
         public final static int onClickAction = 0x3;
+    }
+    public static final class Mapper{
+        public final static int loadOrderListbyManager = 0x1;
+        public final static int loadManagerWork = 0x2;
+        public final static int loadManagerResourceList = 0x3;
+        public final static int loadManagerStorageList = 0x4;
+        public final static int loadManagerClientList = 0x5;
+        public final static int loadManagerMasterList = 0x6;
+        public final static int loadClientOrderList = 0x7;
+        public final static int loadMasterEstimateList = 0x8;
     }
     public static final class Client{
         public final static String CLIENT_TYPE = "Тип:";

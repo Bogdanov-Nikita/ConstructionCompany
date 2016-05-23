@@ -11,64 +11,29 @@ import businesslogic.Manager;
 import businesslogic.Master;
 import businesslogic.Order;
 import businesslogic.Resource;
-import businesslogic.Role;
 import businesslogic.Storage;
 import businesslogic.Work;
-import database.ClientMapper;
-import database.DatabaseManager;
-import database.EstimateMapper;
-import database.ManagerMapper;
-import database.MasterMapper;
-import database.OrderMapper;
-import database.ResourceMapper;
-import database.StorageMapper;
-import database.WorkMapper;
 import java.awt.Dimension;
 import java.awt.Toolkit;
 import java.awt.event.WindowEvent;
-import java.sql.SQLException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 import javax.swing.event.ListSelectionEvent;
 import service.Authorization;
-import service.config.Config;
+import service.BuisnessService;
+import service.ExitMsg;
 import service.config.ConfigDatabase;
 import service.config.ConfigRole;
-import service.config.ConfigXmlParser;
 /**
  *
  * @author Nik
  */
 public class MainFrame extends javax.swing.JFrame {
-
+    
     boolean Master = false;         //Выбор для обобщенного диалога добавления/редактирования для какой роли  Master - true , Client - false.
     int DialogAction = 0;           //Действие диалогового окна добавить/редактировать для Склада отправить/получиить 
-    boolean CONNECTED = false;      //Флаг подключения к базе данных
     boolean UPDATED = false;        //Флаг обновлениея данных
-    int index = -1;                 //номер текушего пользователя в конфигурационном файле
-    int CurrentId = 0;              //id текущего пользователя в базе
-    Config config;                  //Конфигурационный файл содержит пароли и доступ к базе
-    Role CurrentRole;               //Роль текщего пользователя системы
-    DatabaseManager DBManager;      //Управление базой данных
-    SimpleDateFormat DateFormat;    //Формат времени и даты
-    
-    //Для роли менеджера
-    ArrayList<Order> ManagerOrderList;          //Список заказов
-    ArrayList<Work> ManagerWorkList;            //Список работ
-    ArrayList<Resource> ManagerResourceList;    //Список ресурсов
-    ArrayList<Storage> ManagerStorageList;      //Список Складов
-    ArrayList<Master> ManagerMasterList;        //Список прорабов
-    ArrayList<Client> ManagerClientList;        //Список клиентов данного менеджера
-    ArrayList<Work> TempEstimateWorkList;       //Веременный список смет
-    //Для роли мастера
-    ArrayList<Estimate> MasterEstimateList;     //Список Смет для получения списка работ для данного мастера
-    //Для роли клиента
-    ArrayList<Order> ClientOrderList;           //Список заказов данного клиента
+    BuisnessService service;        //Слой служб управляющий бизнеслогикой и слоем хранения
     
     /**
      * Инициализация диалогового окна
@@ -84,7 +49,7 @@ public class MainFrame extends javax.swing.JFrame {
         //Выполненно 6.прописать бизнес логику.
         //Выполненно 7.написать тесты.        
         //Выполненно 8.вставить диалог для запоминания перехода.
-        DateFormat = new SimpleDateFormat (R.DataFormat);
+        /*DateFormat = new SimpleDateFormat (R.DataFormat);
         ManagerOrderList = null;
         ManagerWorkList = null;        
         ManagerResourceList = null;
@@ -93,7 +58,8 @@ public class MainFrame extends javax.swing.JFrame {
         ManagerMasterList = null;
         ClientOrderList = null;
         MasterEstimateList = null;
-        TempEstimateWorkList = null;
+        TempEstimateWorkList = null;*/
+        service = new BuisnessService();
         initComponents();
         initLocation();
     }
@@ -111,91 +77,10 @@ public class MainFrame extends javax.swing.JFrame {
             elem.setLocation(dim.width/2-elem.getSize().width/2, dim.height/2-elem.getSize().height/2);
         }
     }
-    
-    private void initConfig(){
-        //получение данных из конфигурационного файла
-        ConfigXmlParser configInfo = new ConfigXmlParser();
-        if(configInfo.OpenConfig(R.FileName.Config) == ConfigXmlParser.CONFIG_SUCCESS){  
-            config = configInfo.getConfig();           
-        }else{
-            config = null;
-        }
-    }
-    
-    private void initAuth(){
-        if(config != null){
-            String role = null;
-            switch(RoleComboBox.getSelectedIndex()+1){
-                case R.ModelType.ManagerModel:
-                    role = R.RoleType.ConfigManager;
-                    break;
-                case R.ModelType.MasterModel:
-                    role = R.RoleType.ConfigMaster;
-                    break;
-                case R.ModelType.ClientModel: 
-                    role = R.RoleType.ConfigClient;
-                    break;
-            }
-            index = Authorization.ConfigRoleAuth(role, LoginTextField.getText(), new String(PasswordFieldText.getPassword()), config);
-        }
-    }
-    
-    private void initDatabase(){
-        if(config != null && index >= 0){
-            //Запуск и проверка коннекта до базы, незадыть вызвать диалог проверки доступа к базе в случае не доступности
-            if(config.getConfigItem(index).isValid()){
-                ConfigDatabase ConfigInfo = config.getConfigItem(index).getDatabase();
-                    CONNECTED = true;
-                    //подключение к базе данных
-                    DBManager = new DatabaseManager(
-                            ConfigInfo.getUser(), 
-                            ConfigInfo.getPassword(), 
-                            ConfigInfo.getHost(), 
-                            ConfigInfo.getPath(), 
-                            ConfigInfo.getEncoding(), 
-                            ConfigInfo.getType(), 
-                            DatabaseManager.IsolationLevel.TRANSACTION_SERIALIZABLE.name());
-                    try{
-                        DBManager.connect();
-                    }catch(SQLException|NullPointerException ex){
-                        CONNECTED = false;
-                        Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, "Can't connected to database", ex);
-                        ErrorMassage(ex.toString());
-                    }
-            }else{
-                ErrorMassage(R.ErrMsg.ConfigError_2);
-            }
-        }
-    }
-    
-    private void initDatabaseRoleAuth(){        
-        try {
-            CurrentId = Authorization.DatabaseRoleAuth(config.getConfigItem(index).getRole(), DBManager);
-            if(CurrentId > 0){                
-                switch(RoleComboBox.getSelectedIndex()+1){
-                    case R.ModelType.ManagerModel://Менеджер
-                        CurrentRole = new ManagerMapper().load(CurrentId, DBManager);
-                        break;
-                    case R.ModelType.MasterModel://Прораб
-                        CurrentRole = new MasterMapper().load(CurrentId, DBManager);
-                        break;
-                    case R.ModelType.ClientModel://Клиент
-                        CurrentRole = new ClientMapper().load(CurrentId, DBManager);
-                        break;
-                }
-            }else{
-                CurrentRole = null;
-            }
-        } catch (SQLException ex) {
-            CurrentRole = null;
-            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-            ErrorMassage(ex.toString());
-        }
-    }
-    
+     
     private void initRoleViewBlock(){
-        ConfigRole RoleInfo = config.getConfigItem(index).getRole();
-        ConfigDatabase ConfigInfo = config.getConfigItem(index).getDatabase();
+        ConfigRole RoleInfo = service.getCurrentConfigRole();
+        ConfigDatabase ConfigInfo = service.getCurrentConfigDatabase();
         switch(RoleComboBox.getSelectedIndex()+1){
             case R.ModelType.ManagerModel://Менеджер
                 ManagerView.setTitle(
@@ -203,9 +88,9 @@ public class MainFrame extends javax.swing.JFrame {
                         "Connected to: "+ ConfigInfo.getHost() + " ["+ConfigInfo.getPath()+"]");
                 ManagerView.setVisible(true);
                 //Вкладка профиль
-                ManagerNameTextField.setText(CurrentRole.getName());
-                ManagerPhoneTextField.setText(CurrentRole.getPhoneNumber());
-                ManagerAddressTextField.setText(((Manager)CurrentRole).getOfficeAddress());                               
+                ManagerNameTextField.setText(service.getCurrentRole().getName());
+                ManagerPhoneTextField.setText(service.getCurrentRole().getPhoneNumber());
+                ManagerAddressTextField.setText(((Manager)service.getCurrentRole()).getOfficeAddress());                               
                 initManagerViewModel();
                 break;
             case R.ModelType.MasterModel://Прораб
@@ -214,8 +99,8 @@ public class MainFrame extends javax.swing.JFrame {
                         "Connected to: "+ ConfigInfo.getHost() + " ["+ConfigInfo.getPath()+"]");
                 MasterView.setVisible(true);
                 //Вкладка профиль
-                MasterNameTextField.setText(CurrentRole.getName());
-                MasterPhoneTextField.setText(CurrentRole.getPhoneNumber());
+                MasterNameTextField.setText(service.getCurrentRole().getName());
+                MasterPhoneTextField.setText(service.getCurrentRole().getPhoneNumber());
                 initMasterViewModel();
                 break;
             case R.ModelType.ClientModel://Клиент
@@ -224,36 +109,38 @@ public class MainFrame extends javax.swing.JFrame {
                         "Connected to: "+ ConfigInfo.getHost() + " ["+ConfigInfo.getPath()+"]");
                 ClientView.setVisible(true);
                 //Вкладка профиль
-                ClientNameTextField.setText(CurrentRole.getName());
-                ClientPhoneTextField.setText(CurrentRole.getPhoneNumber());
-                ClientAddressTextField.setText(((Client)CurrentRole).getAddres());
+                ClientNameTextField.setText(service.getCurrentRole().getName());
+                ClientPhoneTextField.setText(service.getCurrentRole().getPhoneNumber());
+                ClientAddressTextField.setText(((Client)service.getCurrentRole()).getAddres());
                 ClientTypeLabel.setText( R.Client.CLIENT_TYPE + " " + 
-                        R.Client.ClientTypeName(((Client)CurrentRole).getType()));
+                        R.Client.ClientTypeName(((Client)service.getCurrentRole()).getType()));
                 initClientViewModel();
                 break;
         }
     }
     
     private void initManagerViewModel(){
+        ExitMsg ex;
         //Вкладка заказов.
-        try {
-            ManagerOrderList = new OrderMapper().loadListbyManager(CurrentId, DBManager);
+        ex = service.loadOrderListbyManager();
+        if(ex.getCode() == ExitMsg.SUCCESS){
             javax.swing.table.DefaultTableModel ManagerOrderTableModel = 
                     (javax.swing.table.DefaultTableModel)ManagerOrderTable.getModel();
-            ManagerOrderList.stream().forEach((list1) -> {
+            while(ManagerOrderTableModel.getRowCount() > 0){ManagerOrderTableModel.removeRow(0);}
+            service.getManagerOrderList().stream().forEach((list1) -> {
                 ManagerOrderTableModel.addRow(new Object[]{
                     String.valueOf(list1.getNumber()),
                     R.Order.StatusName(list1.getStatus()), 
                     String.valueOf(list1.getCurrentCoast()), 
-                    DateFormat.format(list1.getCreate()), 
-                    DateFormat.format(list1.getLastUpdate()),
-                    (list1.getEnd()!= null) ? DateFormat.format(list1.getEnd()):""});
+                    service.getDateFormat().format(list1.getCreate()), 
+                    service.getDateFormat().format(list1.getLastUpdate()),
+                    (list1.getEnd()!= null) ? service.getDateFormat().format(list1.getEnd()):""});
                 list1.CoastCalculation();
             });                                    
             ManagerOrderTable.getSelectionModel().addListSelectionListener((ListSelectionEvent event) -> {
                 int SelectedRow = ManagerOrderTable.getSelectedRow();
                 if(SelectedRow >= 0){
-                    switch(ManagerOrderList.get(SelectedRow).getStatus()){
+                    switch(service.getManagerOrderAt(SelectedRow).getStatus()){
                         case Order.OPEN:
                             ChangeStatusOrderButton.setText("Изменить статус на: " + R.Order.StatusName(Order.INPROGRESS));
                             ChangeStatusOrderButton.setEnabled(true);
@@ -268,10 +155,9 @@ public class MainFrame extends javax.swing.JFrame {
                             break;
                     }
                     
-                    
                     javax.swing.table.DefaultTableModel m = (javax.swing.table.DefaultTableModel)ManagerEstimateTable.getModel();
                     while(m.getRowCount() > 0){m.removeRow(0);}
-                    ManagerOrderList.get(SelectedRow).getEstimateList().stream().forEach((Elist1) -> {
+                    service.getManagerOrderAt(SelectedRow).getEstimateList().stream().forEach((Elist1) -> {
                         m.addRow(new Object[]{
                                     R.Estimate.TypeName(Elist1.getType()), 
                                     R.Estimate.StatusName(Elist1.isPaid(), Elist1.isFinish()),
@@ -281,15 +167,14 @@ public class MainFrame extends javax.swing.JFrame {
                     });
                 }
             });
-        } catch (SQLException ex) {
-            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        }else{ErrorMassage(ex.getMassage());}
         //Вкладка работ.
-        try {
-            ManagerWorkList = new WorkMapper().loadList(DBManager);
+        ex = service.loadManagerWorkList();
+        if(ex.getCode() == ExitMsg.SUCCESS){
             javax.swing.table.DefaultTableModel ManagerWorkTableModel = 
                     (javax.swing.table.DefaultTableModel) ManagerWorkTable.getModel();
-            ManagerWorkList.stream().forEach((Work1) -> {
+            while(ManagerWorkTableModel.getRowCount() > 0){ManagerWorkTableModel.removeRow(0);}
+            service.getManagerWorkList().stream().forEach((Work1) -> {
                 ManagerWorkTableModel.addRow(new Object[]{
                     Work1.getDescription(),
                     Work1.getServiceCoast(),
@@ -302,7 +187,7 @@ public class MainFrame extends javax.swing.JFrame {
                     javax.swing.table.DefaultTableModel m = 
                     (javax.swing.table.DefaultTableModel)ManagerWorkResourceTable.getModel();
                     while(m.getRowCount() > 0){m.removeRow(0);}
-                    ManagerWorkList.get(SelectedRow).getResources().stream().forEach((Res1) -> {                                                
+                    service.getManagerWorkAt(SelectedRow).getResources().stream().forEach((Res1) -> {                                                
                         m.addRow(new Object[]{
                                     Res1.getName(),
                                     String.valueOf(Res1.getAmount()),
@@ -313,30 +198,28 @@ public class MainFrame extends javax.swing.JFrame {
                     });
                 }
             });
-        } catch (SQLException ex) {
-            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        }else{ErrorMassage(ex.getMassage());}
         //Вкладка Ресурсы.                             
-        try {
-            ManagerResourceList = new ResourceMapper().loadList(DBManager);
+        ex = service.loadManagerResourceList();
+        if(ex.getCode() == ExitMsg.SUCCESS){
             javax.swing.table.DefaultTableModel ManagerStorageTableModel = 
                     (javax.swing.table.DefaultTableModel)ManagerResourceTable.getModel();
-            ManagerResourceList.stream().forEach((Res1) -> {
+            while(ManagerStorageTableModel.getRowCount() > 0 ){ManagerStorageTableModel.removeRow(0);}
+            service.getManagerResourceList().stream().forEach((Res1) -> {
                 ManagerStorageTableModel.addRow(new Object[]{
                     Res1.getName(),
                     String.valueOf(Res1.getCoast()),
                     String.valueOf(Res1.getType())
                 });
             });
-        } catch (SQLException ex) {
-            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-        }     
+        }else{ErrorMassage(ex.getMassage());}
         //Вкладка Склад.
-        try {
-            ManagerStorageList = new StorageMapper().loadList(DBManager);
+        ex = service.loadManagerStorageList();
+        if(ex.getCode() == ExitMsg.SUCCESS){
             javax.swing.table.DefaultTableModel ManagerStorageTableModel = 
                     (javax.swing.table.DefaultTableModel)ManagerStorageTable.getModel();
-            ManagerStorageList.stream().forEach((Storege1) -> {
+            while(ManagerStorageTableModel.getRowCount() > 0){ManagerStorageTableModel.removeRow(0);}
+            service.getManagerStorageList().stream().forEach((Storege1) -> {
                 ManagerStorageTableModel.addRow(new Object[]{Storege1.getLocation()});
             });
             ManagerStorageTable.getSelectionModel().addListSelectionListener((ListSelectionEvent event) -> {
@@ -345,7 +228,7 @@ public class MainFrame extends javax.swing.JFrame {
                     javax.swing.table.DefaultTableModel m = 
                     (javax.swing.table.DefaultTableModel)ManagerStorageResourceTable.getModel();
                     while(m.getRowCount() > 0){m.removeRow(0);}
-                    ManagerStorageList.get(SelectedRow).getResources().stream().forEach((Res1) -> {                                                
+                    service.getManagerStorageAt(SelectedRow).getResources().stream().forEach((Res1) -> {                                                
                         m.addRow(new Object[]{
                                     Res1.getName(),
                                     String.valueOf(Res1.getAmount()),
@@ -356,15 +239,14 @@ public class MainFrame extends javax.swing.JFrame {
                     });
                 }
             });
-        } catch (SQLException ex) {
-            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        //Вкладка заказчики                                                        
-        try {
+        }else{ErrorMassage(ex.getMassage());}
+        //Вкладка заказчики
+        ex = service.loadManagerClientList();
+        if(ex.getCode() == ExitMsg.SUCCESS){
             javax.swing.table.DefaultTableModel ManagerClientTableModel = 
                     (javax.swing.table.DefaultTableModel)ManagerClientTable.getModel();
-            ManagerClientList = new ClientMapper().loadList(DBManager);
-            ManagerClientList.stream().forEach((Client1) -> {
+            while(ManagerClientTableModel.getRowCount() > 0){ManagerClientTableModel.removeRow(0);}
+            service.getManagerClientList().stream().forEach((Client1) -> {
                 ManagerClientTableModel.addRow(new Object[]{
                     Client1.getName(),
                     Client1.getPhoneNumber(),
@@ -372,89 +254,91 @@ public class MainFrame extends javax.swing.JFrame {
                     R.Client.ClientTypeName(Client1.getType())
                 });
             });
-        } catch (SQLException ex) {
-            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        }else{ErrorMassage(ex.getMassage());}
         //Вкладка прорабы
-        try {
+        ex = service.loadManagerMasterList();
+        if(ex.getCode() == ExitMsg.SUCCESS){
             javax.swing.table.DefaultTableModel ManagerMasterTableModel = 
                     (javax.swing.table.DefaultTableModel)ManagerMasterTable.getModel();
-            ManagerMasterList = new MasterMapper().loadList(DBManager);
-            ManagerMasterList.stream().forEach((Master1) -> {
+            while(ManagerMasterTableModel.getRowCount() > 0){ManagerMasterTableModel.removeRow(0);}
+            service.getManagerMasterList().stream().forEach((Master1) -> {
                 ManagerMasterTableModel.addRow(new Object[]{
                     Master1.getName(),
                     Master1.getPhoneNumber()
                 });
             });
-        } catch (SQLException ex) {
-            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-            ErrorMassage(ex.toString());
-        }
+        }else{ErrorMassage(ex.getMassage());}
     }
     
     private void initMasterViewModel(){
-        javax.swing.table.DefaultTableModel MasterWorksTableModel = 
-                                        (javax.swing.table.DefaultTableModel)MasterWorksTable.getModel();                     
-        try {
-            MasterEstimateList = new EstimateMapper().loadListbyMaster(CurrentId, DBManager);
-            for (Estimate MasterEstimateList1 : MasterEstimateList) {
-                Client cl = new OrderMapper().loadClientByOrderId(MasterEstimateList1.getOrderId(), DBManager);
-                MasterEstimateList1.getWorkList().stream().forEach((work1) -> {
-                    MasterWorksTableModel.addRow(new Object[]{
-                        work1.getDescription(),
-                        R.Work.StatusName(work1.isFinish()),
-                        String.valueOf(work1.getServiceCoast()),
-                        String.valueOf(work1.CoastCalculation()),
-                        cl.getName(),
-                        cl.getPhoneNumber(),
-                        cl.getAddres()}
-                    );  });
-            }
-            MasterWorksTable.getSelectionModel().addListSelectionListener((ListSelectionEvent event) -> {
-                if(MasterWorksTable.getSelectedRow() >= 0){
-                    int WorkIndex = MasterWorksTable.getSelectedRow();
-                    int EstimateIndex = 0;
-                    for (Estimate es : MasterEstimateList) {
-                        int size = es.getWorkList().size();
-                        if(WorkIndex >= size){
-                            EstimateIndex++;
-                            WorkIndex = WorkIndex - size;
-                        }else{
-                            break;
-                        }
-                    }
-                    MasterFinishWorkButton.setEnabled(
-                            !MasterEstimateList
-                                    .get(EstimateIndex)
-                                    .getWork(WorkIndex)
-                                    .isFinish()
-                    );
+        ExitMsg ex = service.loadMasterEstimateList();
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            javax.swing.table.DefaultTableModel MasterWorksTableModel = 
+                                            (javax.swing.table.DefaultTableModel)MasterWorksTable.getModel();
+            while(MasterWorksTableModel.getRowCount() > 0){MasterWorksTableModel.removeRow(0);}
+            for (Estimate MasterEstimateList1 : service.getMasterEstimateList()) {
+                Client cl = service.loadClientByOrderId(MasterEstimateList1.getOrderId()); 
+                if(cl != null){
+                    MasterEstimateList1.getWorkList().stream().forEach((work1) -> {
+                        MasterWorksTableModel.addRow(new Object[]{
+                            work1.getDescription(),
+                            R.Work.StatusName(work1.isFinish()),
+                            String.valueOf(work1.getServiceCoast()),
+                            String.valueOf(work1.CoastCalculation()),
+                            cl.getName(),
+                            cl.getPhoneNumber(),
+                            cl.getAddres()}
+                        );  });
+                }else{
+                    ex = new ExitMsg(ExitMsg.DATABASE_LOAD_ERROR, null);
+                    break;
                 }
-            });
-        } catch (SQLException ex) {
-            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-            ErrorMassage(ex.toString());
-        }
+            }
+            if(ex.getCode() == ExitMsg.SUCCESS){
+                MasterWorksTable.getSelectionModel().addListSelectionListener((ListSelectionEvent event) -> {
+                    if(MasterWorksTable.getSelectedRow() >= 0){
+                        int WorkIndex = MasterWorksTable.getSelectedRow();
+                        int EstimateIndex = 0;
+                        for (Estimate es : service.getMasterEstimateList()) {
+                            int size = es.getWorkList().size();
+                            if(WorkIndex >= size){
+                                EstimateIndex++;
+                                WorkIndex = WorkIndex - size;
+                            }else{
+                                break;
+                            }
+                        }
+                        MasterFinishWorkButton.setEnabled(
+                                !service.getMasterEstimateList()
+                                        .get(EstimateIndex)
+                                        .getWork(WorkIndex)
+                                        .isFinish()
+                        );
+                    }
+                });
+            }else{ErrorMassage(R.ErrMsg.DatabaseLoadError);}
+        }else{ErrorMassage(ex.getMassage());}
     }
     
     private void initClientViewModel(){
-        try {
-            ClientOrderList = new OrderMapper().loadListbyClient(CurrentId, DBManager);
+        ExitMsg ex = service.loadClientOrderList();
+        if(ex.getCode() == ExitMsg.SUCCESS){
             javax.swing.table.DefaultTableModel ClientOrderTableModel = 
                     (javax.swing.table.DefaultTableModel)ClientOrderTable.getModel();
-            ClientOrderList.stream().forEach((list1) -> {
+            while(ClientOrderTableModel.getRowCount() > 0){ClientOrderTableModel.removeRow(0);}
+            service.getClientOrderList().stream().forEach((list1) -> {
                 ClientOrderTableModel.addRow(new Object[]{
                     String.valueOf(list1.getNumber()),
                     R.Order.StatusName(list1.getStatus()), 
                     String.valueOf(list1.getCurrentCoast()), 
-                    DateFormat.format(list1.getCreate()), 
-                    DateFormat.format(list1.getLastUpdate()),
-                    (list1.getEnd()!= null) ? DateFormat.format(list1.getEnd()):""});
+                    service.getDateFormat().format(list1.getCreate()), 
+                    service.getDateFormat().format(list1.getLastUpdate()),
+                    (list1.getEnd()!= null) ? service.getDateFormat().format(list1.getEnd()):""});
                 list1.CoastCalculation();
             });                                    
             ClientOrderTable.getSelectionModel().addListSelectionListener((ListSelectionEvent event) -> {
                 if(ClientOrderTable.getSelectedRow() >= 0){
-                    switch(ClientOrderList.get(ClientOrderTable.getSelectedRow()).getStatus()){
+                    switch(service.getClientOrderAt(ClientOrderTable.getSelectedRow()).getStatus()){
                         case Order.WAITING_PAY:
                             ClientAcceptWorkButton.setEnabled(false);
                             ClientPayButton.setEnabled(true);
@@ -470,15 +354,11 @@ public class MainFrame extends javax.swing.JFrame {
                     }
                 }
             });
-        } catch (SQLException ex) {
-            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-            ErrorMassage(ex.toString());
-        }
+        }else{ErrorMassage(ex.getMassage());}
     }
     
     private void ErrorMassage(String message){
-        String Title = "Ошибка";
-        JOptionPane.showConfirmDialog(null, message, Title, JOptionPane.DEFAULT_OPTION, JOptionPane.ERROR_MESSAGE, null);
+        JOptionPane.showConfirmDialog(null, message, R.ErrorDialogTitle, JOptionPane.DEFAULT_OPTION, JOptionPane.ERROR_MESSAGE, null);
     }
     
     /**
@@ -2753,28 +2633,34 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void OkButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkButtonActionPerformed
         //Проверка Авторизации и запуск окна для конкретной роли.
-        initConfig();
-        //проверка на загрузку конфига конфиг != null
-        if(config != null){
-            initAuth();
+        service.initConfig();
+        //проверка на загрузку конфига. конфиг != null
+        if(service.getConfig() != null){
+            service.initAuth((RoleComboBox.getSelectedIndex() + 1),LoginTextField.getText(),new String(PasswordFieldText.getPassword()));
             //проверка соответствия роли логиа и пароля код индекса >= 0
-            if(index >= 0){
-                initDatabase();
-                //проверка подключения базы CONECTED = true
-                if(CONNECTED){
-                    initDatabaseRoleAuth();
-                    //проверка для роли внутри базы.
-                    if(CurrentId > 0 && CurrentRole != null){
-                        setVisible(false);
-                        initRoleViewBlock();
-                    }else{//отсутствие роли в базе данных.
-                        ErrorMassage(R.ErrMsg.AuthDatabaseError);
+            if(service.getIndex() >= 0){
+                //проверка валидности данной конфигурационной записи.
+                if(service.isConfigValid()){
+                    service.initDatabase();
+                    //проверка подключения базы CONECTED = true
+                    if(service.isCONNECTED()){
+                        ExitMsg m = service.initDatabaseRoleAuth(RoleComboBox.getSelectedIndex()+1);
+                        //проверка для роли внутри базы.
+                        if(m.getCode() == ExitMsg.SUCCESS){
+                            setVisible(false);
+                            initRoleViewBlock();
+                        }else{//отсутствие роли в базе данных.
+                            String msg = ((m.getMassage()  != null) ? (m.getMassage()+"\n") : "");
+                            ErrorMassage(R.ErrMsg.AuthDatabaseError + msg);
+                        }
+                    }else{//ошибка подключения к базе данных
+                        ErrorMassage(R.ErrMsg.DatabaseError);
                     }
-                }else{//ошибка подключения к базе данных
-                    ErrorMassage(R.ErrMsg.DatabaseError);
+                }else{//ошибка валидности данной конфигурационной записи.
+                    ErrorMassage(R.ErrMsg.ConfigError_2);
                 }
             }else{//ошибка соответствия логина и пароля
-                switch(index){
+                switch(service.getIndex()){
                     case Authorization.NOT_FOUND:
                         ErrorMassage(R.ErrMsg.AuthError_1);
                         break;
@@ -2818,11 +2704,13 @@ public class MainFrame extends javax.swing.JFrame {
     private void NotExitButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_NotExitButtonActionPerformed
         //переход к окну с аутентификацикей
         if(AskCheckBox.isSelected()){
-            config.getConfigItem(index).getSettings().setAskDialog(false);
-            config.getConfigItem(index).getSettings().setExitOperation(false);
+            service.saveAskDialogProperties(false,false);
         }
         //Сохранение конфигурации
-        config.writetoFile(R.FileName.Config);
+        ExitMsg m = service.saveConfig();
+        if(m.getCode() != ExitMsg.SUCCESS){
+            ErrorMassage(m.getMassage());
+        }
         AskDialog.setVisible(false);
         setVisible(true);
     }//GEN-LAST:event_NotExitButtonActionPerformed
@@ -2830,8 +2718,7 @@ public class MainFrame extends javax.swing.JFrame {
     private void ExitButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ExitButtonActionPerformed
         // выход
         if(AskCheckBox.isSelected()){
-            config.getConfigItem(index).getSettings().setAskDialog(false);
-            config.getConfigItem(index).getSettings().setExitOperation(true);
+            service.saveAskDialogProperties(false, true);
         }
         AskDialog.setVisible(false);
         dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));//закрыть приложение
@@ -2839,8 +2726,8 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         //Сохранение конфигурации
-        if(config != null){
-            config.writetoFile(R.FileName.Config);
+        if(service.getConfig() != null){
+            service.saveConfig();
         }
     }//GEN-LAST:event_formWindowClosing
 
@@ -2850,66 +2737,38 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_AskDialogWindowClosing
 
     private void SaveManagerProfileButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_SaveManagerProfileButtonActionPerformed
-        Manager role = (Manager)CurrentRole;
-        if(DBManager != null && CurrentRole != null){
-            if(!ManagerNameTextField.getText().trim().equals("")){
-                if(!ManagerPhoneTextField.getText().trim().equals("")){
-                    if(!ManagerAddressTextField.getText().trim().equals("")){
-                        role.setName(ManagerNameTextField.getText().trim());
-                        role.setPhoneNumber(ManagerPhoneTextField.getText().trim());
-                        role.setOfficeAddress(ManagerAddressTextField.getText().trim());
-                        try {
-                            new ManagerMapper().save(role,DBManager);
-                            UPDATED = true;
-                        } catch (SQLException ex) {                
-                            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                            ErrorMassage(ex.toString());
-                        }
-                    }else{ErrorMassage(R.ErrMsg.AddressError);}
-                }else{ErrorMassage(R.ErrMsg.PhoneError);}
-            }else{ErrorMassage(R.ErrMsg.NaneError);}
-        }
+        ExitMsg m = service.saveManagerProfile(
+                ManagerNameTextField.getText(), 
+                ManagerPhoneTextField.getText(), 
+                ManagerAddressTextField.getText()
+        );
+        if(m.getCode() == ExitMsg.SUCCESS){
+            UPDATED = true;
+        }else{
+            ErrorMassage(m.getMassage());
+        }        
     }//GEN-LAST:event_SaveManagerProfileButtonActionPerformed
 
     private void SaveClientProfileButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_SaveClientProfileButtonActionPerformed
-        Client role = (Client)CurrentRole;
-        if(DBManager != null && CurrentRole != null){
-            if(!ClientNameTextField.getText().trim().equals("")){
-                if(!ClientPhoneTextField.getText().trim().equals("")){
-                    if(!ClientAddressTextField.getText().trim().equals("")){
-                        role.setName(ClientNameTextField.getText().trim());
-                        role.setPhoneNumber(ClientPhoneTextField.getText().trim());
-                        role.setAddres(ClientAddressTextField.getText().trim());
-                        try {
-                            new ClientMapper().save(role,DBManager);
-                            UPDATED = true;
-                        } catch (SQLException ex) {                
-                            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                            ErrorMassage(ex.toString());
-                        }
-                    }else{ErrorMassage(R.ErrMsg.AddressError);}
-                }else{ErrorMassage(R.ErrMsg.PhoneError);}
-            }else{ErrorMassage(R.ErrMsg.NaneError);}
+        ExitMsg m = service.saveClientProfile(
+                ClientNameTextField.getText(), 
+                ClientPhoneTextField.getText(), 
+                ClientAddressTextField.getText()
+        );
+        if(m.getCode() == ExitMsg.SUCCESS){
+            UPDATED = true;
+        }else{
+            ErrorMassage(m.getMassage());
         }
     }//GEN-LAST:event_SaveClientProfileButtonActionPerformed
 
     private void SaveMasterProfileButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_SaveMasterProfileButtonActionPerformed
-        Master role = (Master)CurrentRole;
-        if(DBManager != null && CurrentRole != null){
-            if(!MasterNameTextField.getText().trim().equals("")){
-                if(!MasterPhoneTextField.getText().trim().equals("")){            
-                    role.setName(MasterNameTextField.getText().trim());
-                    role.setPhoneNumber(MasterPhoneTextField.getText().trim());
-                    try {
-                        new MasterMapper().save(role,DBManager);
-                        UPDATED = true;
-                    } catch (SQLException ex) {                
-                        Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                        ErrorMassage(ex.toString());
-                    }
-                }else{ErrorMassage(R.ErrMsg.AddressError);}
-            }else{ErrorMassage(R.ErrMsg.PhoneError);}
-        }else{ErrorMassage(R.ErrMsg.NaneError);}
+        ExitMsg m = service.saveMasterProfile(MasterNameTextField.getText(), MasterPhoneTextField.getText());
+        if(m.getCode() == ExitMsg.SUCCESS){
+            UPDATED = true;
+        }else{
+            ErrorMassage(m.getMassage());
+        }
     }//GEN-LAST:event_SaveMasterProfileButtonActionPerformed
 
     private void ManagerExitButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ManagerExitButtonActionPerformed
@@ -2927,12 +2786,12 @@ public class MainFrame extends javax.swing.JFrame {
     private void ClientAcceptWorkButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ClientAcceptWorkButtonActionPerformed
         int SelectedRow = ClientOrderTable.getSelectedRow();
         if(SelectedRow >= 0){
-            if(ClientOrderList != null){
-                if(ClientOrderList.get(SelectedRow).getStatus() == Order.WAITING_ACKNOWLEDGMENT_TAKE){
-                    ClientOrderList.get(SelectedRow).setStatus(Order.WAITING_PAY);
+            if(service.getClientOrderList() != null){
+                if(service.getClientOrderAt(SelectedRow).getStatus() == Order.WAITING_ACKNOWLEDGMENT_TAKE){
+                    service.getClientOrderAt(SelectedRow).setStatus(Order.WAITING_PAY);
                     javax.swing.table.DefaultTableModel ClientOrderTableModel = 
                                             (javax.swing.table.DefaultTableModel)ClientOrderTable.getModel();
-                    ClientOrderTableModel.setValueAt(R.Order.StatusName(ClientOrderList.get(SelectedRow).getStatus()), SelectedRow, 1);
+                    ClientOrderTableModel.setValueAt(R.Order.StatusName(service.getClientOrderAt(SelectedRow).getStatus()), SelectedRow, 1);
                 }
             }
         }else{
@@ -2942,64 +2801,49 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void ClientPayButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ClientPayButtonActionPerformed
         int SelectedRow = ClientOrderTable.getSelectedRow();
-        if(SelectedRow >= 0){
-            if(ClientOrderList != null){
-                if(ClientOrderList.get(SelectedRow).getStatus() == Order.WAITING_PAY){
-                    //Диалог с запросом числа.
-                    try{
-                        double pay = Double.parseDouble(JOptionPane.showInputDialog(R.Dialog.ClientPayInputMsg).trim());
-                        if(pay < 0){
-                            ErrorMassage(R.ErrMsg.InputDataError_2);
-                        }else{                            
-                            if(((Client)CurrentRole).PayEstimatePart(ClientOrderList.get(SelectedRow),pay)){
-                                String Title = "Оплата";
+        ExitMsg ex = service.clientPayLogic(SelectedRow, new BuisnessService.ClienPayListener(){
+
+            @Override
+            public String askDialog() {
+                return JOptionPane.showInputDialog(R.Dialog.ClientPayInputMsg);
+            }
+
+            @Override
+            public void acceptDialog() {
+                String Title = "Оплата";
                                 JOptionPane.showConfirmDialog(null, 
                                         R.Dialog.ClienPayAccept, 
                                         Title, 
                                         JOptionPane.DEFAULT_OPTION, 
-                                        JOptionPane.PLAIN_MESSAGE, null);
-                                javax.swing.table.DefaultTableModel ClientOrderTableModel = 
-                                            (javax.swing.table.DefaultTableModel)ClientOrderTable.getModel();
-                                ClientOrderTableModel.setValueAt(String.valueOf(ClientOrderList.get(SelectedRow).getCurrentCoast()), SelectedRow, 2);
-                            }else{
-                                ErrorMassage(R.ErrMsg.InputPayError);
-                            }
-                        } 
-                    }catch(NumberFormatException ex){
-                        ErrorMassage(R.ErrMsg.InputDataError_1);
-                    }
-                }
+                                        JOptionPane.PLAIN_MESSAGE, null);                   
             }
+            
+        });
+        
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            javax.swing.table.DefaultTableModel ClientOrderTableModel = 
+                                            (javax.swing.table.DefaultTableModel)ClientOrderTable.getModel();
+                                ClientOrderTableModel.setValueAt(String.valueOf(service.getClientOrderList().get(SelectedRow).getCurrentCoast()), SelectedRow, 2);
         }else{
-            ErrorMassage(R.ErrMsg.CollumSelectionError);
+            ErrorMassage(ex.getMassage());
         }
     }//GEN-LAST:event_ClientPayButtonActionPerformed
 
     private void ClientOrderDetailButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ClientOrderDetailButtonActionPerformed
         int SelectedRow = ClientOrderTable.getSelectedRow();
         if(SelectedRow >= 0){
-            OrderNumberLabel.setText(R.Dialog.Order + " №" + 
-                    String.valueOf(ClientOrderList.get(SelectedRow).getNumber()));
-            OrderStatusLabel.setText(R.Dialog.Status + " " +
-                    R.Order.StatusName(ClientOrderList.get(SelectedRow).getStatus()));
-            OrderClientNameLabel.setText(R.Dialog.Client + " " + 
-                    CurrentRole.getName());
-            OrderTotalCoastLabel.setText(R.Dialog.TotalCoast + " " +
-                    String.valueOf(ClientOrderList.get(SelectedRow).getTotalCoast()));
-            OrderCurrentCoastLabel.setText(R.Dialog.CurrentCoast + " " +
-                    String.valueOf(ClientOrderList.get(SelectedRow).getCurrentCoast()));
-            OrderCreateDateLabel.setText(R.Dialog.Create + " " + 
-                    DateFormat.format(ClientOrderList.get(SelectedRow).getCreate()));
-            OrderLastUpdateDateLabel.setText(R.Dialog.LastUpdate + " " + 
-                    DateFormat.format(ClientOrderList.get(SelectedRow).getLastUpdate()));            
-            OrderEndDateLabel.setText(
-                    R.Dialog.End + " " + 
-                    ((ClientOrderList.get(SelectedRow).getEnd() != null) ? 
-                    DateFormat.format(ClientOrderList.get(SelectedRow).getEnd()):" "));
+            OrderNumberLabel.setText(service.getOrderNumberText(SelectedRow));
+            OrderStatusLabel.setText(service.getOrderStatusText(SelectedRow));
+            OrderClientNameLabel.setText(service.getOrderClientNameText());
+            OrderTotalCoastLabel.setText(service.getOrderTotalCoastText(SelectedRow));
+            OrderCurrentCoastLabel.setText(service.getOrderCurrentCoastText(SelectedRow));
+            OrderCreateDateLabel.setText(service.getOrderCreateDateText(SelectedRow));
+            OrderLastUpdateDateLabel.setText(service.getOrderLastUpdateDateText(SelectedRow));            
+            OrderEndDateLabel.setText(service.getOrderEndDateText(SelectedRow));
             
             javax.swing.table.DefaultTableModel m = (javax.swing.table.DefaultTableModel)OrderEstimateTable.getModel();
             while(m.getRowCount() > 0){m.removeRow(0);}
-            ClientOrderList.get(SelectedRow).getEstimateList().stream().forEach((Elist1) -> {
+            service.getClientOrderAt(SelectedRow).getEstimateList().stream().forEach((Elist1) -> {
                 m.addRow(new Object[]{
                             R.Estimate.TypeName(Elist1.getType()), 
                             R.Estimate.StatusName(Elist1.isPaid(), Elist1.isFinish())
@@ -3011,7 +2855,7 @@ public class MainFrame extends javax.swing.JFrame {
                 if(OrderEstimateTable.getSelectedRow() >= 0){
                     javax.swing.table.DefaultTableModel workModel = (javax.swing.table.DefaultTableModel)OrderWorkTable.getModel();                 
                     while(workModel.getRowCount() > 0){workModel.removeRow(0);}
-                    ClientOrderList.get(SelectedRow).getEstimate(OrderEstimateTable.getSelectedRow()).getWorkList().stream().forEach((e) -> {
+                    service.getClientOrderAt(SelectedRow).getEstimate(OrderEstimateTable.getSelectedRow()).getWorkList().stream().forEach((e) -> {
                         workModel.addRow(new Object[]{
                             e.getDescription(), 
                             R.Work.StatusName(e.isFinish()),
@@ -3027,7 +2871,7 @@ public class MainFrame extends javax.swing.JFrame {
                     if(OrderWorkTable.getSelectedRow() >= 0 ){
                     javax.swing.table.DefaultTableModel resourceModel = (javax.swing.table.DefaultTableModel)OrderResourceTable.getModel();
                     while(resourceModel.getRowCount() > 0){resourceModel.removeRow(0);}
-                    ClientOrderList
+                    service.getClientOrderList()
                             .get(SelectedRow)
                             .getEstimate(OrderEstimateTable.getSelectedRow())
                             .getWork(OrderWorkTable.getSelectedRow())
@@ -3058,7 +2902,7 @@ public class MainFrame extends javax.swing.JFrame {
         if(SelectedRow >= 0){
             int WorkIndex = SelectedRow;
             int EstimateIndex = 0;
-            for (Estimate es : MasterEstimateList) {
+            for (Estimate es : service.getMasterEstimateList()) {
                 int size = es.getWorkList().size();
                 if(WorkIndex >= size){
                     EstimateIndex++;
@@ -3067,10 +2911,10 @@ public class MainFrame extends javax.swing.JFrame {
                     break;
                 }
             }
-            MasterEstimateList.get(EstimateIndex).getWork(WorkIndex).setFinish(true);
+            service.getMasterEstimateAt(EstimateIndex).getWork(WorkIndex).setFinish(true);
             javax.swing.table.DefaultTableModel MasterWorksTableModel = 
                                         (javax.swing.table.DefaultTableModel)MasterWorksTable.getModel();
-            MasterWorksTableModel.setValueAt(R.Work.StatusName(MasterEstimateList.get(EstimateIndex).getWork(WorkIndex).isFinish()),SelectedRow,1);
+            MasterWorksTableModel.setValueAt(R.Work.StatusName(service.getMasterEstimateAt(EstimateIndex).getWork(WorkIndex).isFinish()),SelectedRow,1);
         }else{
             ErrorMassage(R.ErrMsg.CollumSelectionError);
         }
@@ -3092,9 +2936,9 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_ManagerUpdateButtonActionPerformed
 
     private void AddOrderButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_AddOrderButtonActionPerformed
-        DateCreateTextField.setText(DateFormat.format(new Date()));
+        DateCreateTextField.setText(service.getDateFormat().format(new Date()));
         ManagerClientComboBox.removeAllItems();
-        ManagerClientList.stream().forEach((Client1) -> {
+        service.getManagerClientList().stream().forEach((Client1) -> {
             ManagerClientComboBox.addItem(Client1.getName());
         });
         AddOrderDialog.setVisible(true);
@@ -3102,41 +2946,21 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void ChangeStatusOrderButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ChangeStatusOrderButtonActionPerformed
         int SelectedRow = ManagerOrderTable.getSelectedRow();
-        if(SelectedRow >= 0){
-            switch(ManagerOrderList.get(SelectedRow).getStatus()){
-                case Order.OPEN:
-                    ManagerOrderList.get(SelectedRow).setStatus(Order.INPROGRESS);
-                    ManagerOrderList.get(SelectedRow).setCurrentCoast(ManagerOrderList.get(SelectedRow).CoastCalculation());
-                break;
-                case Order.WAITING_ACKNOWLEDGMENT_PAY:
-                    ManagerOrderList.get(SelectedRow).setStatus(Order.CLOSE);
-                break;
-            }
-            try {
-                new OrderMapper().save(ManagerOrderList.get(SelectedRow), DBManager);
-                ManagerOrderTable.getModel().setValueAt(R.Order.StatusName(ManagerOrderList.get(SelectedRow).getStatus()), SelectedRow, 1);
-            } catch (SQLException ex) {
-                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                ErrorMassage(ex.toString());
-            }
+        ExitMsg ex = service.changeOrderStatus(SelectedRow);
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            ManagerOrderTable.getModel().setValueAt(R.Order.StatusName(service.getManagerOrderAt(SelectedRow).getStatus()), SelectedRow, 1);
         }else{
-            ErrorMassage(R.ErrMsg.CollumSelectionError);
+            ErrorMassage(ex.getMassage());
         }
     }//GEN-LAST:event_ChangeStatusOrderButtonActionPerformed
 
     private void DeleteOrderButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteOrderButtonActionPerformed
         int SelectedRow = ManagerOrderTable.getSelectedRow();
-        if(SelectedRow >= 0){
-            try {
-                new OrderMapper().delete(ManagerOrderList.get(SelectedRow).getId(), DBManager);
-                ManagerOrderList.remove(SelectedRow);
-                ((javax.swing.table.DefaultTableModel)ManagerOrderTable.getModel()).removeRow(SelectedRow);
-            } catch (SQLException ex) {
-                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                ErrorMassage(R.ErrMsg.DeleteError);
-            }
+        ExitMsg ex = service.deleteOrder(SelectedRow);
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            ((javax.swing.table.DefaultTableModel)ManagerOrderTable.getModel()).removeRow(SelectedRow);
         }else{
-            ErrorMassage(R.ErrMsg.CollumSelectionError);
+            ErrorMassage(ex.getMassage());
         }
     }//GEN-LAST:event_DeleteOrderButtonActionPerformed
 
@@ -3152,8 +2976,8 @@ public class MainFrame extends javax.swing.JFrame {
         int SelectedRow = ManagerWorkTable.getSelectedRow();
         if(SelectedRow >= 0){
             DialogAction = R.Dialog.EditAction;
-            DescriptionTextField.setText(ManagerWorkList.get(SelectedRow).getDescription());
-            WorkCoastTextField.setText(String.valueOf(ManagerWorkList.get(SelectedRow).getServiceCoast()));
+            DescriptionTextField.setText(service.getManagerWorkAt(SelectedRow).getDescription());
+            WorkCoastTextField.setText(String.valueOf(service.getManagerWorkAt(SelectedRow).getServiceCoast()));
             AddEditWorkDialog.setTitle(R.Dialog.Edit);
             AddEditWorkDialog.setVisible(true);
         }else{
@@ -3163,18 +2987,12 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void DeleteWorkButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteWorkButtonActionPerformed
         int SelectedRow = ManagerWorkTable.getSelectedRow();
-        if(SelectedRow >= 0){
-            try {
-                new WorkMapper().delete(ManagerWorkList.get(SelectedRow).getId(), DBManager);
-                ManagerWorkList.remove(SelectedRow);
-                ((javax.swing.table.DefaultTableModel)ManagerWorkTable.getModel()).removeRow(SelectedRow);
-                UPDATED = true;
-            } catch (SQLException ex) {
-                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                ErrorMassage(R.ErrMsg.DeleteError);
-            }            
-        }else{
-            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        ExitMsg ex = service.deleteWork(SelectedRow);
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            ((javax.swing.table.DefaultTableModel)ManagerWorkTable.getModel()).removeRow(SelectedRow);
+            UPDATED = true;
+        }else{    
+            ErrorMassage(ex.getMassage());
         }
     }//GEN-LAST:event_DeleteWorkButtonActionPerformed
 
@@ -3191,9 +3009,9 @@ public class MainFrame extends javax.swing.JFrame {
         int SelectedRow = ManagerResourceTable.getSelectedRow();
         if(SelectedRow >= 0){
             DialogAction = R.Dialog.EditAction;
-            NameTextField.setText(ManagerResourceList.get(SelectedRow).getName());
-            ResourceCoastTextField.setText(String.valueOf(ManagerResourceList.get(SelectedRow).getCoast()));
-            TypeTextField.setText(String.valueOf(ManagerResourceList.get(SelectedRow).getType()));
+            NameTextField.setText(service.getManagerResourceAt(SelectedRow).getName());
+            ResourceCoastTextField.setText(String.valueOf(service.getManagerResourceAt(SelectedRow).getCoast()));
+            TypeTextField.setText(String.valueOf(service.getManagerResourceAt(SelectedRow).getType()));
             AddEditResourceDialog.setTitle(R.Dialog.Edit);
             AddEditResourceDialog.setVisible(true);
         }else{
@@ -3202,19 +3020,13 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_EditResourceButtonActionPerformed
 
     private void DeleteResourceButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteResourceButtonActionPerformed
-        int SelectedRow = ManagerResourceTable.getSelectedRow();
-        if(SelectedRow >= 0){
-            try {
-                new ResourceMapper().delete(ManagerResourceList.get(SelectedRow).getId(), DBManager);
-                ManagerResourceList.remove(SelectedRow);
-                ((javax.swing.table.DefaultTableModel)ManagerResourceTable.getModel()).removeRow(SelectedRow);
-                UPDATED = true;
-            } catch (SQLException ex) {
-                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                ErrorMassage(R.ErrMsg.DeleteError);
-            }            
-        }else{
-            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        int SelectedRow = ManagerResourceTable.getSelectedRow();        
+        ExitMsg ex = service.deleteResource(SelectedRow);
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            ((javax.swing.table.DefaultTableModel)ManagerResourceTable.getModel()).removeRow(SelectedRow);
+            UPDATED = true;
+        }else{    
+            ErrorMassage(ex.getMassage());
         }
     }//GEN-LAST:event_DeleteResourceButtonActionPerformed
 
@@ -3229,7 +3041,7 @@ public class MainFrame extends javax.swing.JFrame {
         int SelectedRow = ManagerStorageTable.getSelectedRow();
         if(SelectedRow >= 0){
             DialogAction = R.Dialog.EditAction;
-            StorageLocationTextField.setText(ManagerStorageList.get(SelectedRow).getLocation());
+            StorageLocationTextField.setText(service.getManagerStorageAt(SelectedRow).getLocation());
             AddEditStorageDialog.setTitle(R.Dialog.Edit);
             AddEditStorageDialog.setVisible(true);
         }else{
@@ -3238,19 +3050,13 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_EditStorageButtonActionPerformed
 
     private void DeleteStorageButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteStorageButtonActionPerformed
-        int SelectedRow = ManagerStorageTable.getSelectedRow();
-        if(SelectedRow >= 0){
-            try {
-                new StorageMapper().delete(ManagerStorageList.get(SelectedRow).getId(), DBManager);
-                ManagerStorageList.remove(SelectedRow);
-                ((javax.swing.table.DefaultTableModel)ManagerStorageTable.getModel()).removeRow(SelectedRow);
-                UPDATED = true;
-            } catch (SQLException ex) {
-                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                ErrorMassage(R.ErrMsg.DeleteError);
-            }            
-        }else{
-            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        int SelectedRow = ManagerStorageTable.getSelectedRow();      
+        ExitMsg ex = service.deleteStorage(SelectedRow);
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            ((javax.swing.table.DefaultTableModel)ManagerStorageTable.getModel()).removeRow(SelectedRow);
+            UPDATED = true;
+        }else{    
+            ErrorMassage(ex.getMassage());
         }
     }//GEN-LAST:event_DeleteStorageButtonActionPerformed
 
@@ -3259,8 +3065,8 @@ public class MainFrame extends javax.swing.JFrame {
         if(SelectedRow >= 0){
             DialogAction = R.Dialog.SendAction;
             TypeNameComboBox.removeAllItems();
-            if(ManagerResourceList != null){
-                ManagerResourceList.stream().forEach((e) -> {
+            if(service.getManagerResourceList() != null){
+                service.getManagerResourceList().stream().forEach((e) -> {
                     TypeNameComboBox.addItem(e.getName());
                 });
             }
@@ -3277,11 +3083,11 @@ public class MainFrame extends javax.swing.JFrame {
     private void TakeResourceFromStorageButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_TakeResourceFromStorageButtonActionPerformed
         int SelectedRow = ManagerStorageTable.getSelectedRow();
         int SelectedRowResource = ManagerStorageResourceTable.getSelectedRow();
-        if(SelectedRow >= 0 && SelectedRowResource>= 0){
+        if(SelectedRow >= 0 && SelectedRowResource >= 0){
             DialogAction = R.Dialog.TakeAction;
             TypeNameComboBox.removeAllItems();
-            if(ManagerStorageList.get(SelectedRow).getResources() != null){
-                ManagerStorageList.get(SelectedRow).getResources().stream().forEach((e) -> {
+            if(service.getManagerStorageAt(SelectedRow).getResources() != null){
+                service.getManagerStorageAt(SelectedRow).getResources().stream().forEach((e) -> {
                     TypeNameComboBox.addItem(e.getName());
                 });
             }
@@ -3315,10 +3121,10 @@ public class MainFrame extends javax.swing.JFrame {
         if(SelectedRow >= 0){
             Master = false;
             DialogAction = R.Dialog.EditAction;
-            NameClientMasterTextField.setText(ManagerClientList.get(SelectedRow).getName());
-            PhoneTextField.setText(ManagerClientList.get(SelectedRow).getPhoneNumber());
-            AddressTextField.setText(ManagerClientList.get(SelectedRow).getAddres());
-            TypeComboBox.setSelectedIndex(ManagerClientList.get(SelectedRow).getType()-1);
+            NameClientMasterTextField.setText(service.getManagerClientAt(SelectedRow).getName());
+            PhoneTextField.setText(service.getManagerClientAt(SelectedRow).getPhoneNumber());
+            AddressTextField.setText(service.getManagerClientAt(SelectedRow).getAddres());
+            TypeComboBox.setSelectedIndex(service.getManagerClientAt(SelectedRow).getType()-1);
             jLabel26.setVisible(true);
             AddressTextField.setVisible(true);
             jLabel30.setVisible(true);
@@ -3332,18 +3138,12 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void DeleteClientButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteClientButtonActionPerformed
         int SelectedRow = ManagerClientTable.getSelectedRow();
-        if(SelectedRow >= 0){
-            try {
-                new ClientMapper().delete(ManagerClientList.get(SelectedRow).getID(), DBManager);
-                ManagerClientList.remove(SelectedRow);
-                ((javax.swing.table.DefaultTableModel)ManagerClientTable.getModel()).removeRow(SelectedRow);
-                UPDATED = true;
-            } catch (SQLException ex) {
-                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                ErrorMassage(R.ErrMsg.DeleteError);
-            }
-        }else{
-            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        ExitMsg ex = service.deleteClient(SelectedRow);
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            ((javax.swing.table.DefaultTableModel)ManagerClientTable.getModel()).removeRow(SelectedRow);
+            UPDATED = true;
+        }else{    
+            ErrorMassage(ex.getMassage());
         }
     }//GEN-LAST:event_DeleteClientButtonActionPerformed
 
@@ -3365,8 +3165,8 @@ public class MainFrame extends javax.swing.JFrame {
         if(SelectedRow >= 0){
             Master = true;
             DialogAction = R.Dialog.EditAction;
-            NameClientMasterTextField.setText(ManagerMasterList.get(SelectedRow).getName());
-            PhoneTextField.setText(ManagerMasterList.get(SelectedRow).getPhoneNumber());
+            NameClientMasterTextField.setText(service.getManagerMasterAt(SelectedRow).getName());
+            PhoneTextField.setText(service.getManagerMasterAt(SelectedRow).getPhoneNumber());
             jLabel26.setVisible(false);
             AddressTextField.setVisible(false);
             jLabel30.setVisible(false);
@@ -3380,18 +3180,12 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void DeleteMasterButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteMasterButtonActionPerformed
         int SelectedRow = ManagerMasterTable.getSelectedRow();
-        if(SelectedRow >= 0){
-            try {
-                new ManagerMapper().delete(ManagerMasterList.get(SelectedRow).getID(), DBManager);
-                ManagerMasterList.remove(SelectedRow);
-                ((javax.swing.table.DefaultTableModel)ManagerMasterTable.getModel()).removeRow(SelectedRow);
-                UPDATED = true;
-            } catch (SQLException ex) {
-                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                ErrorMassage(R.ErrMsg.DeleteError);
-            }
-        }else{
-            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        ExitMsg ex = service.deleteMaster(SelectedRow);
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            ((javax.swing.table.DefaultTableModel)ManagerMasterTable.getModel()).removeRow(SelectedRow);
+            UPDATED = true;
+        }else{    
+            ErrorMassage(ex.getMassage());
         }
     }//GEN-LAST:event_DeleteMasterButtonActionPerformed
 
@@ -3419,14 +3213,14 @@ public class MainFrame extends javax.swing.JFrame {
             while(m.getRowCount() > 0){m.removeRow(0);}
             DialogAction = R.Dialog.EditAction;
             WorkComboBox.removeAllItems();
-            ManagerOrderList.get(SelectedRow).getEstimate(SelectedRowEstimate).getWorkList().stream().forEach((e) -> {
+            service.getManagerOrderAt(SelectedRow).getEstimate(SelectedRowEstimate).getWorkList().stream().forEach((e) -> {
                 m.addRow(new Object[]{
                     e.getDescription(),
                     e.getServiceCoast(),
                     e.CoastCalculation()
                 });
             });
-            EstimateTypeComboBox.setSelectedIndex(ManagerOrderList.get(SelectedRow).getEstimate(SelectedRowEstimate).getType()-1);
+            EstimateTypeComboBox.setSelectedIndex(service.getManagerOrderAt(SelectedRow).getEstimate(SelectedRowEstimate).getType()-1);
             AddEditEstimateDialog.setTitle(R.Dialog.Edit);
             AddEditEstimateDialog.setVisible(true);
         }else{
@@ -3437,18 +3231,12 @@ public class MainFrame extends javax.swing.JFrame {
     private void DeleteEstimateButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteEstimateButtonActionPerformed
         int SelectedRow = ManagerOrderTable.getSelectedRow();
         int EstimateSelectedRow = ManagerEstimateTable.getSelectedRow();
-        if(SelectedRow >= 0 && EstimateSelectedRow >= 0){
-            try {
-                new EstimateMapper().delete(ManagerOrderList.get(SelectedRow).getEstimate(EstimateSelectedRow).getId(), DBManager);
-                ManagerOrderList.get(SelectedRow).deleteEstimate(EstimateSelectedRow);
-                ((javax.swing.table.DefaultTableModel)ManagerEstimateTable.getModel()).removeRow(EstimateSelectedRow);
-                UPDATED = true;
-            } catch (SQLException ex) {
-                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                ErrorMassage(R.ErrMsg.DeleteError);
-            }
-        }else{
-            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        ExitMsg ex = service.deleteEstimate(SelectedRow,EstimateSelectedRow);
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            ((javax.swing.table.DefaultTableModel)ManagerEstimateTable.getModel()).removeRow(EstimateSelectedRow);
+            UPDATED = true;
+        }else{    
+            ErrorMassage(ex.getMassage());
         }
     }//GEN-LAST:event_DeleteEstimateButtonActionPerformed
 
@@ -3457,7 +3245,7 @@ public class MainFrame extends javax.swing.JFrame {
         if(SelectedRow >= 0){
             DialogAction = R.Dialog.AddAction;
             TypeNameComboBox.removeAllItems();
-            ManagerResourceList.stream().forEach((e) -> {
+            service.getManagerResourceList().stream().forEach((e) -> {
                 TypeNameComboBox.addItem(e.getName());
             });
             TypeNameComboBox.setEnabled(true);
@@ -3476,15 +3264,15 @@ public class MainFrame extends javax.swing.JFrame {
         if(SelectedRow >= 0 && SelectedRowResource >= 0){
             DialogAction = R.Dialog.EditAction;
             TypeNameComboBox.removeAllItems();
-            if(ManagerWorkList.get(SelectedRow).getResources() != null){
-                ManagerWorkList.get(SelectedRow).getResources().stream().forEach((e) -> {
+            if(service.getManagerWorkAt(SelectedRow).getResources() != null){
+                service.getManagerWorkAt(SelectedRow).getResources().stream().forEach((e) -> {
                     TypeNameComboBox.addItem(e.getName());
                 });
             }
             TypeNameComboBox.setSelectedIndex(SelectedRowResource);
             TypeNameComboBox.setEnabled(false);
             NameRadio.setSelected(true);
-            AmountTextField.setText(String.valueOf(ManagerWorkList.get(SelectedRow).getResource(SelectedRowResource).getAmount()));
+            AmountTextField.setText(String.valueOf(service.getManagerWorkAt(SelectedRow).getResource(SelectedRowResource).getAmount()));
             TakeSendResourceDialog.setTitle(R.Dialog.Edit);
             TakeSendResourceDialog.setVisible(true);
         }else{
@@ -3495,160 +3283,105 @@ public class MainFrame extends javax.swing.JFrame {
     private void DeleteWorkResourceButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteWorkResourceButtonActionPerformed
         int SelectedRow = ManagerWorkTable.getSelectedRow();
         int SelectedRowResource = ManagerWorkResourceTable.getSelectedRow();
-        if(SelectedRow >= 0 && SelectedRowResource >= 0){            
-            try {                
-                new WorkMapper().clearWorkResource(
-                        ManagerWorkList.get(SelectedRow).getId(),
-                        ManagerWorkList.get(SelectedRow).getResource(SelectedRowResource).getId(),
-                        DBManager);
-                ManagerWorkList.get(SelectedRow).getResources().remove(SelectedRowResource);
-                ((javax.swing.table.DefaultTableModel)ManagerWorkResourceTable.getModel()).removeRow(SelectedRowResource);
-                UPDATED = true;
-            } catch (SQLException ex) {
-                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                ErrorMassage(R.ErrMsg.DeleteError);
-            }
-        }else{
-            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        ExitMsg ex = service.deleteWorkResource(SelectedRow,SelectedRowResource);
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            ((javax.swing.table.DefaultTableModel)ManagerWorkResourceTable.getModel()).removeRow(SelectedRowResource);
+            UPDATED = true;
+        }else{    
+            ErrorMassage(ex.getMassage());
         }
     }//GEN-LAST:event_DeleteWorkResourceButtonActionPerformed
 
     private void OkTakeSendResourceDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkTakeSendResourceDialogButtonActionPerformed
-        if(!AmountTextField.getText().trim().equals("")){
-            try {
-                int Amount = Integer.parseInt(AmountTextField.getText().trim());
-                if(Amount > 0){
-                    int SelectedRow;
-                    int SelectedRowResource;
-                    int SelectedIndex = TypeNameComboBox.getSelectedIndex();
-                    switch(DialogAction){
-                        case R.Dialog.AddAction:
-                            SelectedRow = ManagerWorkTable.getSelectedRow();
-                            Resource WorkResource = new Resource(
-                                    ManagerResourceList.get(SelectedIndex).getId(),
-                                    Amount,
-                                    ManagerResourceList.get(SelectedIndex).getType(),
-                                    ManagerResourceList.get(SelectedIndex).getCoast(),
-                                    ManagerResourceList.get(SelectedIndex).getName());
-                            try {
-                                int WorkResPosition = AccumulateIfAlreadyExists(ManagerWorkList.get(SelectedRow).getResources(), WorkResource);
-                                if( WorkResPosition < 0){                                    
-                                    ManagerWorkList.get(SelectedRow).add(WorkResource);
-                                    new WorkMapper().saveArray(ManagerWorkList, DBManager);
-                                    ((javax.swing.table.DefaultTableModel)ManagerWorkResourceTable.getModel())
-                                        .addRow(new Object[]{
-                                            WorkResource.getName(),
-                                            String.valueOf(WorkResource.getAmount()),
-                                            String.valueOf(WorkResource.getCoast()),
-                                            String.valueOf(WorkResource.getType())
-                                        });
-                                }else{
-                                    new WorkMapper().saveArray(ManagerWorkList, DBManager);
-                                    javax.swing.table.DefaultTableModel m = 
-                                            ((javax.swing.table.DefaultTableModel)ManagerWorkResourceTable.getModel());
-                                    m.setValueAt(WorkResource.getName(), WorkResPosition, 0);
-                                    m.setValueAt(String.valueOf(WorkResource.getAmount()), WorkResPosition, 1);
-                                    m.setValueAt(String.valueOf(WorkResource.getCoast()), WorkResPosition, 2);
-                                    m.setValueAt(String.valueOf(WorkResource.getType()), WorkResPosition, 3);
-                                }
-                                ((javax.swing.table.DefaultTableModel)ManagerWorkTable.getModel())
-                                        .setValueAt(String.valueOf(ManagerWorkList.get(SelectedRow).CoastCalculation()),SelectedRow, 2);
-                                UPDATED = true;
-                            } catch (SQLException ex) {
-                                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                                ErrorMassage(ex.toString());
-                            }
-                            break;
-                        case R.Dialog.EditAction:
-                            SelectedRow = ManagerWorkTable.getSelectedRow();
-                            SelectedRowResource = ManagerWorkResourceTable.getSelectedRow();
-                            ManagerWorkList.get(SelectedRow).getResource(SelectedRowResource).setAmount(Amount);
-                            try {
-                                new WorkMapper().saveArray(ManagerWorkList, DBManager);
-                                UPDATED = true;
-                            } catch (SQLException ex) {
-                                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                                ErrorMassage(ex.toString());
-                            }
-                            break;
-                        case R.Dialog.SendAction:
-                            SelectedRow = ManagerStorageTable.getSelectedRow();
-                            Resource StorageResource = new Resource(
-                                    ManagerResourceList.get(SelectedIndex).getId(),
-                                    Amount,
-                                    ManagerResourceList.get(SelectedIndex).getType(),
-                                    ManagerResourceList.get(SelectedIndex).getCoast(),
-                                    ManagerResourceList.get(SelectedIndex).getName());
-                            try {
-                                int StorResPosition = AccumulateIfAlreadyExists(ManagerStorageList.get(SelectedRow).getResources(), StorageResource);
-                                if( StorResPosition < 0 ){
-                                    ManagerStorageList.get(SelectedRow).addResource(StorageResource);
-                                    new StorageMapper().saveArray(ManagerStorageList, DBManager);
-                                    ((javax.swing.table.DefaultTableModel)ManagerStorageResourceTable.getModel())
-                                        .addRow(new Object[]{
-                                            StorageResource.getName(),
-                                            String.valueOf(StorageResource.getAmount()),
-                                            String.valueOf(StorageResource.getCoast()),
-                                            String.valueOf(StorageResource.getType())
-                                        });
-                                }else{
-                                    new StorageMapper().saveArray(ManagerStorageList, DBManager);
-                                    javax.swing.table.DefaultTableModel m = 
-                                            ((javax.swing.table.DefaultTableModel)ManagerStorageResourceTable.getModel());
-                                    m.setValueAt(ManagerResourceList.get(SelectedIndex).getName(), SelectedIndex, 0);
-                                    m.setValueAt(String.valueOf(StorageResource.getAmount()), StorResPosition, 1);
-                                    m.setValueAt(String.valueOf(StorageResource.getCoast()), StorResPosition, 2);
-                                    m.setValueAt(String.valueOf(StorageResource.getType()), StorResPosition, 3);
-                                }
-                                UPDATED = true;
-                            } catch (SQLException ex) {
-                                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                                ErrorMassage(ex.toString());
-                            }
-                            break;
-                        case R.Dialog.TakeAction:
-                            SelectedRow = ManagerStorageTable.getSelectedRow();
-                            SelectedRowResource = ManagerStorageResourceTable.getSelectedRow();
-                            int tempAmount = ManagerStorageList.get(SelectedRow).getResource(SelectedRowResource).getAmount() - Amount;
-                            if(tempAmount < 0){
-                                ErrorMassage(R.ErrMsg.StorageAmountError);
-                            }else{
-                                try {
-                                    if(tempAmount > 0){
-                                        ManagerStorageList.get(SelectedRow).getResource(SelectedRowResource).setAmount(tempAmount);
-                                        new StorageMapper().saveArray(ManagerStorageList, DBManager);
-                                        ((javax.swing.table.DefaultTableModel)ManagerStorageResourceTable.getModel())
-                                                .setValueAt(String.valueOf(ManagerStorageList.get(SelectedRow)
-                                                                .getResource(SelectedRowResource).getAmount()),
-                                                        SelectedRowResource, 1);
-                                        UPDATED = true;
-                                    }else{
-                                        if(tempAmount == 0){
-                                            ManagerStorageList.get(SelectedRow).getResource(SelectedRowResource).getId();
-                                            new StorageMapper().clearStorageResource(
-                                                    ManagerStorageList.get(SelectedRow).getId(),
-                                                    ManagerStorageList.get(SelectedRow).getResource(SelectedRowResource).getId(),
-                                                    DBManager);
-                                            ManagerStorageList.get(SelectedRow).getResources().remove(SelectedRowResource);
-                                            ((javax.swing.table.DefaultTableModel)ManagerStorageResourceTable.getModel())
-                                                    .removeRow(SelectedRowResource);
-                                            UPDATED = true;
-                                        }
-                                    }
-                                } catch (SQLException ex) {
-                                    Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                                    ErrorMassage(ex.toString());
-                                }
-                            }
-                            break;
-                    }
-                    TakeSendResourceDialog.setVisible(false);
-                }else{ErrorMassage(R.ErrMsg.InputWorkAmountError_2);}
-            }catch(NumberFormatException ex){
-                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                ErrorMassage(R.ErrMsg.InputDataError_1);
+        int SelectedWorkRow = ManagerWorkTable.getSelectedRow();
+        int SelectedStorageRow = ManagerStorageTable.getSelectedRow();
+        int SelectedIndex = TypeNameComboBox.getSelectedIndex();
+        int SelectedWorkResourceRow = ManagerWorkResourceTable.getSelectedRow();
+        int SelectedStorageResourceRow = ManagerStorageResourceTable.getSelectedRow();        
+        ExitMsg ex = service.saveTakeSendResourceDialog(
+            DialogAction,
+            AmountTextField.getText(),
+            SelectedWorkRow,
+            SelectedStorageRow,
+            SelectedIndex,
+            SelectedWorkResourceRow,
+            SelectedStorageResourceRow,
+            new BuisnessService.CallBackSaveTakeSendResourceDialog(){
+
+                @Override
+                public void addAction(Resource WorkResource) {
+                    ((javax.swing.table.DefaultTableModel)ManagerWorkResourceTable.getModel())
+                        .addRow(new Object[]{
+                            WorkResource.getName(),
+                            String.valueOf(WorkResource.getAmount()),
+                            String.valueOf(WorkResource.getCoast()),
+                            String.valueOf(WorkResource.getType())
+                    });
+                }
+
+                @Override
+                public void addAction(Resource WorkResource,int WorkResPosition) {
+                    javax.swing.table.DefaultTableModel m = 
+                        ((javax.swing.table.DefaultTableModel)ManagerWorkResourceTable.getModel());
+                    m.setValueAt(WorkResource.getName(), WorkResPosition, 0);
+                    m.setValueAt(String.valueOf(WorkResource.getAmount()), WorkResPosition, 1);
+                    m.setValueAt(String.valueOf(WorkResource.getCoast()), WorkResPosition, 2);
+                    m.setValueAt(String.valueOf(WorkResource.getType()), WorkResPosition, 3);
+                }
+
+                @Override
+                public void WorkFinishAction() {
+                    ((javax.swing.table.DefaultTableModel)ManagerWorkTable.getModel())
+                        .setValueAt(String.valueOf(service.getManagerWorkAt(SelectedWorkRow).CoastCalculation()),SelectedWorkRow, 2);
+                }
+
+                @Override
+                public void sendAction(Resource StorageResource) {
+                    ((javax.swing.table.DefaultTableModel)ManagerStorageResourceTable.getModel())
+                        .addRow(new Object[]{
+                            StorageResource.getName(),
+                            String.valueOf(StorageResource.getAmount()),
+                            String.valueOf(StorageResource.getCoast()),
+                            String.valueOf(StorageResource.getType())
+                    });
+                }
+
+                @Override
+                public void sendAction(Resource StorageResource, int StorResPosition) {
+                    javax.swing.table.DefaultTableModel m = 
+                        ((javax.swing.table.DefaultTableModel)ManagerStorageResourceTable.getModel());
+                    m.setValueAt(service.getManagerResourceAt(SelectedIndex).getName(), SelectedIndex, 0);
+                    m.setValueAt(String.valueOf(StorageResource.getAmount()), StorResPosition, 1);
+                    m.setValueAt(String.valueOf(StorageResource.getCoast()), StorResPosition, 2);
+                    m.setValueAt(String.valueOf(StorageResource.getType()), StorResPosition, 3);
+                }
+
+                @Override
+                public void takeAction() {
+                    ((javax.swing.table.DefaultTableModel)ManagerStorageResourceTable.getModel())
+                        .setValueAt(String.valueOf(service.getManagerStorageAt(SelectedStorageRow)
+                                        .getResource(SelectedStorageResourceRow).getAmount()),
+                                SelectedStorageResourceRow, 1);
+                }
+
+                @Override
+                public void takeAction2() {
+                    ((javax.swing.table.DefaultTableModel)ManagerStorageResourceTable.getModel())
+                        .removeRow(SelectedStorageResourceRow);
+                }
+                
             }
-        }else{ErrorMassage(R.ErrMsg.InputWorkAmountError_1);}
+        );
+        
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            UPDATED = true;
+            TakeSendResourceDialog.setVisible(false);
+        }else{
+            if(ex.getCode() != ExitMsg.INPUT_ERROR){
+                TakeSendResourceDialog.setVisible(false);
+            }
+            ErrorMassage(ex.getMassage());
+        }
     }//GEN-LAST:event_OkTakeSendResourceDialogButtonActionPerformed
 
     private void CanselTakeSendResourceDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_CanselTakeSendResourceDialogButtonActionPerformed
@@ -3656,35 +3389,37 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_CanselTakeSendResourceDialogButtonActionPerformed
 
     private void OkStorageDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkStorageDialogButtonActionPerformed
-        if(!StorageLocationTextField.getText().trim().equals("")){
-            try {
-                Storage stor = new Storage(0,StorageLocationTextField.getText().trim(), null);
-                if(DialogAction == R.Dialog.AddAction){
-                    new StorageMapper().save(stor, DBManager);
-                    ManagerStorageList.add(stor);
-                    ((javax.swing.table.DefaultTableModel)ManagerStorageTable.getModel())
+        int SelectedRow =  ManagerStorageTable.getSelectedRow();
+        ExitMsg ex = service.saveStorage(
+                DialogAction,
+                StorageLocationTextField.getText(),
+                SelectedRow,
+                new BuisnessService.CallBackSaveStorageDialog(){
+
+                    @Override
+                    public void addAction(Storage stor) {
+                        ((javax.swing.table.DefaultTableModel)ManagerStorageTable.getModel())
                             .addRow(new Object[]{stor.getLocation()});
-                    UPDATED = true;
-                }else{
-                    if(DialogAction == R.Dialog.EditAction){
-                        int SelectedRow =  ManagerStorageTable.getSelectedRow();
-                        stor.setId(ManagerStorageList.get(SelectedRow).getId());
-                        stor.setResources(ManagerStorageList.get(SelectedRow).getResources());
-                        new StorageMapper().save(stor, DBManager);
-                        ManagerStorageList.set(SelectedRow, stor);
+                    }
+
+                    @Override
+                    public void editAction(Storage stor) {
                         javax.swing.table.DefaultTableModel m = 
                                 (javax.swing.table.DefaultTableModel)ManagerStorageTable.getModel();
                         m.setValueAt(stor.getLocation(), SelectedRow, 0);
-                        UPDATED = true;
                     }
+
                 }
-            } catch (SQLException ex) {
-                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                ErrorMassage(ex.toString());
-            }
+        );
+        
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            UPDATED = true;
             AddEditStorageDialog.setVisible(false);
         }else{
-            ErrorMassage(R.ErrMsg.InputStorageError);
+            if(ex.getCode() != ExitMsg.INPUT_ERROR){
+                AddEditStorageDialog.setVisible(false);
+            }
+            ErrorMassage(ex.getMassage());
         }
     }//GEN-LAST:event_OkStorageDialogButtonActionPerformed
 
@@ -3693,52 +3428,45 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_CanselStorageDialogButtonActionPerformed
 
     private void OkWorkDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkWorkDialogButtonActionPerformed
-        if(!DescriptionTextField.getText().trim().equals("")){
-            if(!WorkCoastTextField.getText().trim().equals("")){
-                try {
-                    double ServiceCoast = Double.parseDouble(WorkCoastTextField.getText().trim());                
-                    if(ServiceCoast > 0){
-                        try {
-                            Work wr = new Work(0, null,ServiceCoast,DescriptionTextField.getText().trim());
-                            if(DialogAction == R.Dialog.AddAction){
-                                new WorkMapper().save(wr, DBManager);
-                                ManagerWorkList.add(wr);
-                                ((javax.swing.table.DefaultTableModel)ManagerWorkTable.getModel())
-                                        .addRow(new Object[]{
-                                            wr.getDescription(),
-                                            String.valueOf(wr.getServiceCoast()),
-                                            String.valueOf(wr.CoastCalculation())
-                                        });
-                                UPDATED = true;
-                            }else{
-                                if(DialogAction == R.Dialog.EditAction){
-                                    int SelectedRow = ManagerWorkTable.getSelectedRow();
-                                    wr.setId(ManagerWorkList.get(SelectedRow).getId());
-                                    wr.setResources(ManagerWorkList.get(SelectedRow).getResources());
-                                    new WorkMapper().save(wr, DBManager);
-                                    ManagerWorkList.set(SelectedRow, wr);
-                                    javax.swing.table.DefaultTableModel m = 
-                                            (javax.swing.table.DefaultTableModel)ManagerWorkTable.getModel();
-                                    m.setValueAt(wr.getDescription(), SelectedRow, 0);
-                                    m.setValueAt(String.valueOf(wr.getServiceCoast()), SelectedRow, 1);
-                                    m.setValueAt(String.valueOf(wr.CoastCalculation()), SelectedRow, 2);
-                                    UPDATED = true;
-                                }
-                            }
-                        } catch (SQLException ex) {
-                                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-                    }else{ErrorMassage(R.ErrMsg.InputWorkCoastError_2);}
-                } catch(NumberFormatException ex){
-                    Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                    ErrorMassage(R.ErrMsg.InputDataError_1);
+        int SelectedRow = ManagerWorkTable.getSelectedRow();
+        ExitMsg ex = service.saveWork(
+            DialogAction,
+            DescriptionTextField.getText(),
+            WorkCoastTextField.getText(),
+            SelectedRow,
+            new BuisnessService.CallBackSaveWorkDialog(){
+
+                @Override
+                public void addAction(Work wr) {
+                    ((javax.swing.table.DefaultTableModel)ManagerWorkTable.getModel())
+                        .addRow(new Object[]{
+                            wr.getDescription(),
+                            String.valueOf(wr.getServiceCoast()),
+                            String.valueOf(wr.CoastCalculation())
+                    });
                 }
-            }else{
-                ErrorMassage(R.ErrMsg.InputWorkCoastError_1);
+
+                @Override
+                public void editAction(Work wr) {
+                    javax.swing.table.DefaultTableModel m = 
+                                            (javax.swing.table.DefaultTableModel)ManagerWorkTable.getModel();
+                    m.setValueAt(wr.getDescription(), SelectedRow, 0);
+                    m.setValueAt(String.valueOf(wr.getServiceCoast()), SelectedRow, 1);
+                    m.setValueAt(String.valueOf(wr.CoastCalculation()), SelectedRow, 2);                                    
+                }
+                
             }
+        );
+        
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            UPDATED = true;
+            AddEditWorkDialog.setVisible(false);
         }else{
-            ErrorMassage(R.ErrMsg.InputWorkDescriptionError);
-        }
+            if(ex.getCode() != ExitMsg.INPUT_ERROR){
+                AddEditWorkDialog.setVisible(false);
+            }
+            ErrorMassage(ex.getMassage());
+        }    
     }//GEN-LAST:event_OkWorkDialogButtonActionPerformed
 
     private void CanselWorkDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_CanselWorkDialogButtonActionPerformed
@@ -3746,56 +3474,45 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_CanselWorkDialogButtonActionPerformed
 
     private void OkResourceDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkResourceDialogButtonActionPerformed
-        boolean flag = false;
-        if(!NameTextField.getText().trim().equals("")){
-        if(!ResourceCoastTextField.getText().trim().equals("")){            
-        if(!TypeTextField.getText().trim().equals("")){ flag = true;}
-        else{ErrorMassage(R.ErrMsg.InputResourceTypeError_1);}}
-        else{ErrorMassage(R.ErrMsg.InputResourceCoastError_1);}}
-        else{ErrorMassage(R.ErrMsg.InputResourceNameError);}
-        if(flag){
-            try{    
-                double Сoast = Double.parseDouble(ResourceCoastTextField.getText().trim());
-                int Type =  Integer.parseInt(TypeTextField.getText().trim());
-                if(Сoast < 0){
-                    if(Type < 0){
-                        Resource res = new Resource(0,0,Type,Сoast,NameTextField.getText().trim());                        
-                        try {
-                            if(DialogAction == R.Dialog.AddAction){   
-                                new ResourceMapper().save(res, DBManager);
-                                ManagerResourceList.add(res);
-                                ((javax.swing.table.DefaultTableModel)ManagerResourceTable.getModel())
-                                        .addRow(new Object[]{
-                                            res.getName(),
-                                            String.valueOf(res.getCoast()),
-                                            String.valueOf(res.getType())
-                                        });
-                                UPDATED = true;
-                            }else{
-                                if(DialogAction == R.Dialog.EditAction){
-                                    int SelectedRow = ManagerResourceTable.getSelectedRow();
-                                    res.setId(ManagerResourceList.get(SelectedRow).getId());
-                                    new ResourceMapper().save(res, DBManager);
-                                    ManagerResourceList.set(SelectedRow, res);                                    
-                                    javax.swing.table.DefaultTableModel m = 
-                                            (javax.swing.table.DefaultTableModel)ManagerResourceTable.getModel();
-                                    m.setValueAt(res.getName(), SelectedRow, 0);
-                                    m.setValueAt(String.valueOf(res.getCoast()), SelectedRow, 1);
-                                    m.setValueAt(String.valueOf(res.getType()), SelectedRow, 2);
-                                    UPDATED = true;
-                                }
-                            }
-                        } catch (SQLException ex) {
-                            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                            ErrorMassage(ex.toString());
-                        }
-                        AddEditResourceDialog.setVisible(false);
-                    }else{ErrorMassage(R.ErrMsg.InputResourceTypeError_2);}
-                }else{ErrorMassage(R.ErrMsg.InputResourceCoastError_2);}
-            }catch(NumberFormatException ex){
-                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                ErrorMassage(R.ErrMsg.InputDataError_1);
+        int SelectedRow = ManagerResourceTable.getSelectedRow();
+        ExitMsg ex = service.saveResource(
+                DialogAction, 
+                NameTextField.getText(), 
+                ResourceCoastTextField.getText(), 
+                TypeTextField.getText(), 
+                SelectedRow,
+                new BuisnessService.CallBackSaveResourceDialog(){
+
+                    @Override
+                    public void addAction(Resource res) {
+                        ((javax.swing.table.DefaultTableModel)ManagerResourceTable.getModel())
+                            .addRow(new Object[]{
+                                res.getName(),
+                                String.valueOf(res.getCoast()),
+                                String.valueOf(res.getType())
+                            });
+                    }
+
+                    @Override
+                    public void editAction(Resource res) {
+                        javax.swing.table.DefaultTableModel m = 
+                                (javax.swing.table.DefaultTableModel)ManagerResourceTable.getModel();
+                        m.setValueAt(res.getName(), SelectedRow, 0);
+                        m.setValueAt(String.valueOf(res.getCoast()), SelectedRow, 1);
+                        m.setValueAt(String.valueOf(res.getType()), SelectedRow, 2);
+                    }
+
+                }
+        );
+        
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            UPDATED = true;
+            AddEditResourceDialog.setVisible(false);
+        }else{
+            if(ex.getCode() != ExitMsg.INPUT_ERROR){
+                AddEditResourceDialog.setVisible(false);
             }
+            ErrorMassage(ex.getMassage());
         }
     }//GEN-LAST:event_OkResourceDialogButtonActionPerformed
 
@@ -3804,95 +3521,68 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_CanselResourceDialogButtonActionPerformed
 
     private void OkClientMasterDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkClientMasterDialogButtonActionPerformed
-        boolean flag = false;
-        if(!NameClientMasterTextField.getText().trim().equals("")){
-            if(!PhoneTextField.getText().trim().equals("")){
-                if(Master){
-                    flag = true;
-                }else{
-                    if(!AddressTextField.getText().trim().equals("")){
-                        flag = true;
-                    }else{
-                        ErrorMassage(R.ErrMsg.NaneError);
-                    }
-                }
-            }else{
-                ErrorMassage(R.ErrMsg.PhoneError);
-            }
-        }else{
-            ErrorMassage(R.ErrMsg.AddressError);
-        }
-        if(flag){
-            if(Master){
-                Master mr = new Master(0, NameClientMasterTextField.getText().trim(), PhoneTextField.getText().trim());
-                try {
-                    if(DialogAction == R.Dialog.AddAction){
-                        new MasterMapper().save(mr, DBManager);
-                        ManagerMasterList.add(mr);
+        int MasterSelectedRow = ManagerMasterTable.getSelectedRow();
+        int ClientSelectedRow = ManagerClientTable.getSelectedRow();
+        ExitMsg ex  = service.saveClientMaster(
+                DialogAction,
+                NameClientMasterTextField.getText(),
+                PhoneTextField.getText(),
+                AddressTextField.getText(),
+                (TypeComboBox.getSelectedIndex() + 1),
+                Master,
+                MasterSelectedRow,
+                ClientSelectedRow,
+                new BuisnessService.CallBackSaveClientMaster(){
+                    
+                    @Override
+                    public void addMaster(Master mr) {
                         ((javax.swing.table.DefaultTableModel)ManagerMasterTable.getModel()).addRow(
-                                new Object[]{
-                                    mr.getName(),
-                                    mr.getPhoneNumber()
-                                });
-                        UPDATED = true;
-                    }else{
-                        if(DialogAction == R.Dialog.EditAction){
-                            int SelectedRow = ManagerMasterTable.getSelectedRow();
-                            mr.setID(ManagerMasterList.get(SelectedRow).getID());
-                            new MasterMapper().save(mr, DBManager);
-                            ManagerMasterList.set(SelectedRow, mr);
-                            javax.swing.table.DefaultTableModel m = 
-                                                (javax.swing.table.DefaultTableModel)ManagerMasterTable.getModel();
-                            m.setValueAt(mr.getName(), SelectedRow, 0);
-                            m.setValueAt(mr.getPhoneNumber(), SelectedRow, 1);
-                            UPDATED = true;
-                        }
+                        new Object[]{
+                            mr.getName(),
+                            mr.getPhoneNumber()
+                        });
                     }
-                } catch (SQLException ex) {
-                    Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                    ErrorMassage(ex.toString());
-                }
-            }else{
-                Client cl = new Client((TypeComboBox.getSelectedIndex() + 1),
-                        AddressTextField.getText().trim(),
-                        0,
-                        NameClientMasterTextField.getText().trim(),
-                        PhoneTextField.getText().trim()
-                );
-                try {
-                    if(DialogAction == R.Dialog.AddAction){
-                        new ClientMapper().save(cl, DBManager);
-                        ManagerClientList.add(cl);
+                    
+                    @Override
+                    public void editMaster(Master mr) {
+                        javax.swing.table.DefaultTableModel m = 
+                            (javax.swing.table.DefaultTableModel)ManagerMasterTable.getModel();
+                        m.setValueAt(mr.getName(), MasterSelectedRow, 0);
+                        m.setValueAt(mr.getPhoneNumber(), MasterSelectedRow, 1);
+                    }
+                    
+                    @Override
+                    public void addClient(Client cl) {
                         ((javax.swing.table.DefaultTableModel)ManagerClientTable.getModel()).addRow(
-                                new Object[]{
-                                    cl.getName(),
-                                    cl.getPhoneNumber(),
-                                    cl.getAddres(),
-                                    R.Client.ClientTypeName(cl.getType())
-                                }
+                            new Object[]{
+                                cl.getName(),
+                                cl.getPhoneNumber(),
+                                cl.getAddres(),
+                                R.Client.ClientTypeName(cl.getType())
+                            }
                         );
-                        UPDATED = true;
-                    }else{
-                        if(DialogAction == R.Dialog.EditAction){
-                            int SelectedRow = ManagerClientTable.getSelectedRow();
-                            cl.setID(ManagerClientList.get(SelectedRow).getID());
-                            new ClientMapper().save(cl, DBManager);
-                            ManagerClientList.set(SelectedRow, cl);
-                            javax.swing.table.DefaultTableModel m = 
-                                                (javax.swing.table.DefaultTableModel)ManagerClientTable.getModel();
-                            m.setValueAt(cl.getName(), SelectedRow, 0);
-                            m.setValueAt(cl.getPhoneNumber(), SelectedRow, 1);
-                            m.setValueAt(cl.getAddres(), SelectedRow, 2);
-                            m.setValueAt(R.Client.ClientTypeName(cl.getType()), SelectedRow, 3);
-                            UPDATED = true;
-                        }
                     }
-                } catch (SQLException ex) {
-                    Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                    ErrorMassage(ex.toString());
+                    
+                    @Override
+                    public void editClient(Client cl) {
+                        javax.swing.table.DefaultTableModel m = 
+                            (javax.swing.table.DefaultTableModel)ManagerClientTable.getModel();
+                        m.setValueAt(cl.getName(), ClientSelectedRow, 0);
+                        m.setValueAt(cl.getPhoneNumber(), ClientSelectedRow, 1);
+                        m.setValueAt(cl.getAddres(), ClientSelectedRow, 2);
+                        m.setValueAt(R.Client.ClientTypeName(cl.getType()), ClientSelectedRow, 3);
+                    }
+                    
                 }
-            }
+        );
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            UPDATED = true;
             AddEditClientMasterDialog.setVisible(false);
+        }else{
+            if(ex.getCode() != ExitMsg.INPUT_ERROR){
+                AddEditClientMasterDialog.setVisible(false);
+            }
+            ErrorMassage(ex.getMassage());
         }
     }//GEN-LAST:event_OkClientMasterDialogButtonActionPerformed
 
@@ -3903,60 +3593,47 @@ public class MainFrame extends javax.swing.JFrame {
     private void OkEstimateDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkEstimateDialogButtonActionPerformed
         //создать или редактировать смету
         int SelectedRow = ManagerOrderTable.getSelectedRow();
-        if(SelectedRow >= 0){
-            Estimate es = new Estimate((EstimateTypeComboBox.getSelectedIndex() + 1),
-                    (TempEstimateWorkList != null) ? new ArrayList<>(TempEstimateWorkList) : null);
-            es.setOrderId(ManagerOrderList.get(SelectedRow).getId());
-            es.CoastCalculation();
-            try {
-                //сохраняем оплату клиента.
-                double ClientPay = ManagerOrderList.get(SelectedRow).CoastCalculation() - 
-                            ManagerOrderList.get(SelectedRow).getCurrentCoast();
-                if(DialogAction == R.Dialog.AddAction){                    
-                    es.CoastCalculation();
-                    new EstimateMapper().save(es, DBManager);
-                    ManagerOrderList.get(SelectedRow).addEstimate(es);
-                    //делаем перерасчёт
-                    ManagerOrderList.get(SelectedRow).setCurrentCoast(ManagerOrderList.get(SelectedRow).CoastCalculation());
-                    ManagerOrderList.get(SelectedRow).ClientPay(ClientPay);
-                    //сохраняем изминения в заказе
-                    new OrderMapper().save(ManagerOrderList.get(SelectedRow), DBManager);
-                    ((javax.swing.table.DefaultTableModel)ManagerEstimateTable.getModel())
+        int SelectedRowEstimate = ManagerEstimateTable.getSelectedRow();
+        ExitMsg ex  = service.saveEstimate(
+                DialogAction,
+                SelectedRow,(EstimateTypeComboBox.getSelectedIndex() + 1),
+                SelectedRowEstimate,
+                new BuisnessService.CallBackSaveEstimateDialog(){
+
+                    @Override
+                    public void addAction(Estimate es) {
+                        ((javax.swing.table.DefaultTableModel)ManagerEstimateTable.getModel())
                             .addRow(new Object[]{
                                 R.Estimate.TypeName(es.getType()), 
                                 R.Estimate.StatusName(es.isPaid(), es.isFinish()),
                                 String.valueOf(es.getCoast())
                             });
-                    ((javax.swing.table.DefaultTableModel)ManagerOrderTable.getModel())
-                            .setValueAt(String.valueOf(ManagerOrderList.get(SelectedRow).getCurrentCoast()), SelectedRow, 2);
-                    UPDATED = true;
-                }else{
-                    if(DialogAction == R.Dialog.EditAction){
-                        
-                        int SelectedRowEstimate = ManagerEstimateTable.getSelectedRow();
-                        es.setId(ManagerOrderList.get(SelectedRow).getEstimate(SelectedRowEstimate).getId());
-                        es.CoastCalculation();
-                        new EstimateMapper().save(es, DBManager);
-                        //делаем перерасчёт
-                        ManagerOrderList.get(SelectedRow).setCurrentCoast(ManagerOrderList.get(SelectedRow).CoastCalculation());
-                        ManagerOrderList.get(SelectedRow).ClientPay(ClientPay);
-                        //сохраняем изминения в заказе
-                        new OrderMapper().save(ManagerOrderList.get(SelectedRow), DBManager);
+                        ((javax.swing.table.DefaultTableModel)ManagerOrderTable.getModel())
+                                .setValueAt(String.valueOf(service.getManagerOrderAt(SelectedRow).getCurrentCoast()), SelectedRow, 2);
+                    }
+
+                    @Override
+                    public void editAction(Estimate es) {
                         javax.swing.table.DefaultTableModel m = (javax.swing.table.DefaultTableModel)ManagerEstimateTable.getModel();
                         m.setValueAt(R.Estimate.TypeName(es.getType()), SelectedRowEstimate, 0);
                         m.setValueAt(R.Estimate.StatusName(es.isPaid(), es.isFinish()), SelectedRowEstimate, 1);
                         m.setValueAt(String.valueOf(es.getCoast()), SelectedRowEstimate, 2);
                         ((javax.swing.table.DefaultTableModel)ManagerOrderTable.getModel())
-                            .setValueAt(String.valueOf(ManagerOrderList.get(SelectedRow).getCurrentCoast()), SelectedRow, 2);
-                        UPDATED = true;
+                            .setValueAt(String.valueOf(service.getManagerOrderAt(SelectedRow).getCurrentCoast()), SelectedRow, 2);
                     }
+
                 }
-            } catch (SQLException ex) {
-                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                ErrorMassage(ex.toString());
-            }
+        );
+        if(ex.getCode() == ExitMsg.SUCCESS){
+            UPDATED = true;
             AddEditEstimateDialog.setVisible(false);
+        }else{
+            if(ex.getCode() != ExitMsg.INPUT_ERROR){
+                AddEditEstimateDialog.setVisible(false);
+            }
+            ErrorMassage(ex.getMassage());
         }
+        
     }//GEN-LAST:event_OkEstimateDialogButtonActionPerformed
 
     private void CanselEstimateDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_CanselEstimateDialogButtonActionPerformed
@@ -3965,16 +3642,13 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void OkAddEstimateWorkDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkAddEstimateWorkDialogButtonActionPerformed
         int SelectedIndex = WorkComboBox.getSelectedIndex();
-        if(SelectedIndex >= 0){
-            if(TempEstimateWorkList == null){
-                TempEstimateWorkList = new ArrayList<>();
-            }
-            TempEstimateWorkList.add(ManagerWorkList.get(SelectedIndex));
+        ExitMsg ex = service.addEstimate(SelectedIndex);
+        if(ex.getCode() == ExitMsg.SUCCESS){
             ((javax.swing.table.DefaultTableModel)EstimateWorksDialogTable.getModel())
                     .addRow(new Object[]{
-                        ManagerWorkList.get(SelectedIndex).getDescription(),
-                        String.valueOf(ManagerWorkList.get(SelectedIndex).getServiceCoast()),
-                        String.valueOf(ManagerWorkList.get(SelectedIndex).CoastCalculation())
+                        service.getManagerWorkAt(SelectedIndex).getDescription(),
+                        String.valueOf(service.getManagerWorkAt(SelectedIndex).getServiceCoast()),
+                        String.valueOf(service.getManagerWorkAt(SelectedIndex).CoastCalculation())
                     }
             );
             AddEstimateWorkDialog.setVisible(false);
@@ -3986,30 +3660,26 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_CanselAddDeleteWorkDialogButtonActionPerformed
 
     private void OkOrderDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkOrderDialogButtonActionPerformed
-        try {
-            Order ord;
-            int number = new OrderMapper().generateIDs(0, DBManager) + 1;
-            ord = new Order(DateFormat.parse(DateCreateTextField.getText()), number);
-            ord.setManagerID(CurrentId);
-            ord.setClientID(ManagerClientList.get(ManagerClientComboBox.getSelectedIndex()).getID());
-            ord.setCurrentCoast(0);
-            new OrderMapper().save(ord, DBManager);
-            ManagerOrderList.add(ord);
-            javax.swing.table.DefaultTableModel ManagerOrderTableModel= 
-                        (javax.swing.table.DefaultTableModel) ManagerOrderTable.getModel();
+        
+        ExitMsg ex = service.saveOrder(ManagerClientComboBox.getSelectedIndex(), DateCreateTextField.getText().trim(),(Order ord) -> {
+            javax.swing.table.DefaultTableModel ManagerOrderTableModel=
+                    (javax.swing.table.DefaultTableModel) ManagerOrderTable.getModel();
             ManagerOrderTableModel.addRow(new Object[]{
-                    String.valueOf(ord.getNumber()),
-                    R.Order.StatusName(ord.getStatus()), 
-                    String.valueOf(ord.getCurrentCoast()), 
-                    DateFormat.format(ord.getCreate()), 
-                    DateFormat.format(ord.getLastUpdate()),
-                    ""});
+                String.valueOf(ord.getNumber()),
+                R.Order.StatusName(ord.getStatus()),
+                String.valueOf(ord.getCurrentCoast()),
+                service.getDateFormat().format(ord.getCreate()),
+                service.getDateFormat().format(ord.getLastUpdate()),
+                ""});
+        });
+        
+        if(ex.getCode() == ExitMsg.SUCCESS){            
             UPDATED = true;
-        } catch (ParseException | SQLException ex) {
-            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+        }else{
             ErrorMassage(ex.toString());
         }
         AddEstimateWorkDialog.setVisible(false);
+        
     }//GEN-LAST:event_OkOrderDialogButtonActionPerformed
 
     private void CanselOrderDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_CanselOrderDialogButtonActionPerformed
@@ -4026,7 +3696,7 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void AddEstimateDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_AddEstimateDialogButtonActionPerformed
         //вызов диалога для добавления работы в смету
-        ManagerWorkList.stream().forEach((ManagerWorkList1) -> {
+        service.getManagerWorkList().stream().forEach((ManagerWorkList1) -> {
             WorkComboBox.addItem(ManagerWorkList1);
         });
         AddEstimateWorkDialog.setVisible(true);
@@ -4035,31 +3705,14 @@ public class MainFrame extends javax.swing.JFrame {
     private void DeleteEstimateDialogButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DeleteEstimateDialogButtonActionPerformed
         //удаления работы из сметы
         int SelectedRow = EstimateWorksDialogTable.getSelectedRow();
-        if(SelectedRow >= 0 && TempEstimateWorkList != null){
-            TempEstimateWorkList.remove(SelectedRow);
-            if(TempEstimateWorkList.isEmpty()){
-                TempEstimateWorkList = null;
-            }
+        ExitMsg ex = service.deleteTempEstimateWork(SelectedRow);
+        if(ex.getCode() == ExitMsg.SUCCESS){
             ((javax.swing.table.DefaultTableModel)EstimateWorksDialogTable.getModel()).removeRow(SelectedRow);
-        }else{
-            ErrorMassage(R.ErrMsg.CollumSelectionError);
+        }else{    
+            ErrorMassage(ex.getMassage());
         }
     }//GEN-LAST:event_DeleteEstimateDialogButtonActionPerformed
-
-    private int AccumulateIfAlreadyExists(ArrayList<Resource> ResourceList, Resource res){
-        int flag = -1;
-        int i = 0;
-        for (Resource ResourceList1 : ResourceList) {
-            if (ResourceList1.getType() == res.getType()) {
-                res.setId(ResourceList1.getId());
-                ResourceList1.setAmount(ResourceList1.getAmount() + res.getAmount());
-                flag = i;
-            }
-            i++;
-        }
-        return flag;
-    }
-    
+ 
     /**
      * @param flag true - Name, false - type
     */
@@ -4069,23 +3722,23 @@ public class MainFrame extends javax.swing.JFrame {
             switch(DialogAction){
                 case R.Dialog.AddAction:
                     TypeNameComboBox.removeAllItems();
-                    ManagerResourceList.stream().forEach((e) -> {
+                    service.getManagerResourceList().stream().forEach((e) -> {
                             TypeNameComboBox.addItem((flag) ? e.getName() : String.valueOf(e.getType()));
                     });
                     break;
                 case R.Dialog.EditAction:
                     TypeNameComboBox.removeAllItems();
                     SelectedRow = ManagerWorkTable.getSelectedRow();
-                    if(ManagerWorkList.get(SelectedRow).getResources() != null){
-                        ManagerWorkList.get(SelectedRow).getResources().stream().forEach((e) -> {
+                    if(service.getManagerWorkAt(SelectedRow).getResources() != null){
+                        service.getManagerWorkAt(SelectedRow).getResources().stream().forEach((e) -> {
                             TypeNameComboBox.addItem((flag) ? e.getName() : String.valueOf(e.getType()));
                         });
                     }
                     break;
                 case R.Dialog.SendAction:
                     TypeNameComboBox.removeAllItems();
-                    if(ManagerResourceList != null){
-                        ManagerResourceList.stream().forEach((e) -> {
+                    if(service.getManagerResourceList() != null){
+                        service.getManagerResourceList().stream().forEach((e) -> {
                             TypeNameComboBox.addItem((flag) ? e.getName() : String.valueOf(e.getType()));
                         });
                     }
@@ -4093,8 +3746,8 @@ public class MainFrame extends javax.swing.JFrame {
                 case R.Dialog.TakeAction:
                     TypeNameComboBox.removeAllItems();
                     SelectedRow = ManagerStorageTable.getSelectedRow();
-                    if(ManagerStorageList.get(SelectedRow).getResources() != null){
-                        ManagerStorageList.get(SelectedRow).getResources().stream().forEach((e) -> {
+                    if(service.getManagerStorageAt(SelectedRow).getResources() != null){
+                        service.getManagerStorageAt(SelectedRow).getResources().stream().forEach((e) -> {
                             TypeNameComboBox.addItem((flag) ? e.getName() : String.valueOf(e.getType()));
                         });
                     }
@@ -4104,75 +3757,38 @@ public class MainFrame extends javax.swing.JFrame {
     }
     
     private void RoleViewWindowClosing(int RoleType){
-        //стераем данные из таблиц чтобы при повторном заходе в не отразились старые значения.
         //Закрытие окна роли (менеджера,прораба,клиента)
         switch(RoleType){
             case R.ModelType.ManagerModel:
                 ManagerView.setVisible(false);
-                javax.swing.table.DefaultTableModel ManagerOrderTableModel= 
-                        (javax.swing.table.DefaultTableModel) ManagerOrderTable.getModel();
-                while(ManagerOrderTableModel.getRowCount() > 0){ManagerOrderTableModel.removeRow(0);}                
-                javax.swing.table.DefaultTableModel ManagerWorkTableModel = 
-                        (javax.swing.table.DefaultTableModel) ManagerWorkTable.getModel();
-                while(ManagerWorkTableModel.getRowCount() > 0){ManagerWorkTableModel.removeRow(0);}
-                javax.swing.table.DefaultTableModel ManagerResourceTableModel = 
-                        (javax.swing.table.DefaultTableModel) ManagerResourceTable.getModel();
-                while(ManagerResourceTableModel.getRowCount() > 0){ManagerResourceTableModel.removeRow(0);}
-                javax.swing.table.DefaultTableModel ManagerStorageTableModel = 
-                        (javax.swing.table.DefaultTableModel) ManagerStorageTable.getModel();
-                while(ManagerStorageTableModel.getRowCount() > 0){ManagerStorageTableModel.removeRow(0);}
-                javax.swing.table.DefaultTableModel ManagerClientTableModel = 
-                        (javax.swing.table.DefaultTableModel) ManagerClientTable.getModel();
-                while(ManagerClientTableModel.getRowCount() > 0){ManagerClientTableModel.removeRow(0);}
-                javax.swing.table.DefaultTableModel ManagerMasterTableModel = 
-                        (javax.swing.table.DefaultTableModel)ManagerMasterTable.getModel();
-                while(ManagerMasterTableModel.getRowCount() > 0){ManagerMasterTableModel.removeRow(0);}
+                //TODO не нужно добвлений
+                //т.к. для менеджера происходит запись сразу или по кнопке обновления
+                //таже стот задуматся о том нужно ли это для других ролей
                 break;
             case R.ModelType.ClientModel:
-                ClientView.setVisible(false);
-                javax.swing.table.DefaultTableModel  ClientOrderTableModel = 
-                        (javax.swing.table.DefaultTableModel)ClientOrderTable.getModel();
-                while(ClientOrderTableModel.getRowCount() > 0){ClientOrderTableModel.removeRow(0);}
-                javax.swing.table.DefaultTableModel  OrderWorkTableModel = 
-                        (javax.swing.table.DefaultTableModel)OrderWorkTable.getModel();
-                while(OrderWorkTableModel.getRowCount() > 0){OrderWorkTableModel.removeRow(0);}
-                if(ClientOrderList != null){
-                    try {
-                        new OrderMapper().saveArray(ClientOrderList, DBManager);
-                    } catch (SQLException ex) {
-                        Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                        ErrorMassage(ex.toString());
-                    }
+                ClientView.setVisible(false);               
+                ExitMsg ex = service.saveMasterEstimateArray();
+                if(ex.getCode() == ExitMsg.DATABASE_SAVE_ERROR){
+                    ErrorMassage(ex.toString());
                 }            
                 break;
             case R.ModelType.MasterModel:
                 MasterView.setVisible(false);
-                javax.swing.table.DefaultTableModel  MasterWorksTableModel = 
-                        (javax.swing.table.DefaultTableModel)MasterWorksTable.getModel();
-                while(MasterWorksTableModel.getRowCount() > 0){MasterWorksTableModel.removeRow(0);}
-                if(MasterEstimateList != null){  
-                    try {
-                        new EstimateMapper().saveArray(MasterEstimateList, DBManager);
-                    } catch (SQLException ex) {
-                        Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                        ErrorMassage(ex.toString());
-                    }                    
+                //
+                ExitMsg ex2 = service.saveMasterEstimateArray();
+                if(ex2.getCode() == ExitMsg.DATABASE_SAVE_ERROR){  
+                    ErrorMassage(ex2.toString());
                 }
                 break;
         }
         
         //Закрытие текущего соединения
-        try {
-            DBManager.closeConnection();
-        } catch (SQLException ex) {
-            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, "Can't close database connection", ex);
-        }
-        DBManager.close();
+        service.closeDatabaseConnection();
         
-        if(config.getConfigItem(index).getSettings().isAskDialog()){//покывает диалог с вопросом
+        if(service.isAskDialog()){//покывает диалог с вопросом
             AskDialog.setVisible(true);
         }else{
-            if(config.getConfigItem(index).getSettings().isExitOperation()){
+            if(service.isExitOperation()){
                 //выход
                 this.dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));//закрыть приложение
             }else{
