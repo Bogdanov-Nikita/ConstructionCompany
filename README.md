@@ -1,5 +1,7 @@
 ﻿# Строительная компания
 Заказ услуг по сторительным работам.
+Краткое описание.
+[полный отчёт представлен на wiki](https://github.com/Bogdanov-Nikita/ConstructionCompany/wiki)
 
 ###Роли:
 
@@ -34,15 +36,3 @@
   **2 варианта** действий, клиент может оплатить:  
     * наличными или 
     * по безналичному расчёту.
-
-###use-case диаграмма.
-![use-case](/uml_use_case.png)
-
-###uml диаграмма.
-![uml-diagram](/uml_class_diagram.png)
-
-###диаграмма последовательностей
-![sequence-diagram](/getimage.png)
-
-###диаграмма базы данных
-![database-diagram](/database.png)
