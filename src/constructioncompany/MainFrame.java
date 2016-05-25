@@ -62,6 +62,8 @@ public class MainFrame extends javax.swing.JFrame {
         service = new BuisnessService();
         initComponents();
         initLocation();
+        service.initConfig();
+        service.initWebService();
     }
     
     private void initLocation(){
@@ -2633,7 +2635,6 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void OkButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OkButtonActionPerformed
         //Проверка Авторизации и запуск окна для конкретной роли.
-        service.initConfig();
         //проверка на загрузку конфига. конфиг != null
         if(service.getConfig() != null){
             service.initAuth((RoleComboBox.getSelectedIndex() + 1),LoginTextField.getText(),new String(PasswordFieldText.getPassword()));
@@ -2642,6 +2643,8 @@ public class MainFrame extends javax.swing.JFrame {
                 //проверка валидности данной конфигурационной записи.
                 if(service.isConfigValid()){
                     service.initDatabase();
+                    //подключение сервиса дополнения адресов
+                    service.initGeoAutocomplite();
                     //проверка подключения базы CONECTED = true
                     if(service.isCONNECTED()){
                         ExitMsg m = service.initDatabaseRoleAuth(RoleComboBox.getSelectedIndex()+1);
@@ -2729,6 +2732,7 @@ public class MainFrame extends javax.swing.JFrame {
         if(service.getConfig() != null){
             service.saveConfig();
         }
+        service.closeService();
     }//GEN-LAST:event_formWindowClosing
 
     private void AskDialogWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_AskDialogWindowClosing

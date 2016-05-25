@@ -24,10 +24,16 @@ import database.OrderMapper;
 import database.ResourceMapper;
 import database.StorageMapper;
 import database.WorkMapper;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import service.config.Config;
@@ -41,6 +47,7 @@ import service.config.ConfigXmlParser;
  */
 public class BuisnessService {
     
+    boolean CLOSE_SERVICE = false;  //Флаг отключения сервсисов.
     boolean CONNECTED = false;      //Флаг подключения к базе данных
     int index = -1;                 //номер текушего пользователя в конфигурационном файле
     int CurrentId = 0;              //id текущего пользователя в базе
@@ -135,6 +142,11 @@ public class BuisnessService {
             Logger.getLogger(BuisnessService.class.getName()).log(Level.SEVERE, "Can't close database connection", ex);
         }
         DBManager.close();
+        CONNECTED = false;
+    }
+    
+    public synchronized void closeService(){
+        CLOSE_SERVICE = true;
     }
     
     /**
@@ -167,6 +179,62 @@ public class BuisnessService {
             return new ExitMsg(ExitMsg.DATABASE_ROLE_ERROR, ex.toString());
         }
     }    
+    
+    public void initWebService(){
+        new Thread(() -> {
+            try {
+                ServerSocket ss = new ServerSocket(8080);
+                while(!CLOSE_SERVICE){
+                    Socket s = ss.accept();
+                    new Thread(new WebService(s,config)).start();
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(BuisnessService.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (Throwable ex) {
+                Logger.getLogger(BuisnessService.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }).start();
+    }
+    
+    public void initGeoAutocomplite(){
+        if(CONNECTED){
+            Timer timer = new Timer();
+            TimerTask task = new TimerTask(){
+                @Override
+                public void run(){
+                    try {
+                        ArrayList<Client> ClienList = new ClientMapper().loadList(DBManager);
+                        for(Client cl:ClienList){
+                            System.out.println(cl.getAddres());
+                            OpenStreetMapAddressVerificator serv = new OpenStreetMapAddressVerificator(cl.getAddres());
+                            ArrayList<String> l = serv.getAddreslist();
+                            if(l.size() > 0){
+                                if(CONNECTED){
+                                    System.out.println(l.get(0));
+                                    cl.setAddres(l.get(0));
+                                    new ClientMapper().save(cl, DBManager);
+                                }else{timer.cancel();}
+                            }
+                            try {
+                                Thread.sleep(1000);
+                            } catch (InterruptedException ex) {
+                                Logger.getLogger(BuisnessService.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        }
+                    } catch (SQLException ex) {
+                        Logger.getLogger(BuisnessService.class.getName()).log(Level.SEVERE, null, ex);
+                    } catch (MalformedURLException ex) {
+                        Logger.getLogger(BuisnessService.class.getName()).log(Level.SEVERE, null, ex);
+                    } catch (IOException ex) {
+                        Logger.getLogger(BuisnessService.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    
+                }
+            };
+            //запуск через 30 секунд чтобы уменьшить нагрузку при запуске программы.
+            timer.schedule( task, 30000, 1*60000);
+        }
+    }
     
     public String getOrderNumberText(int SelectedRow){
         return R.Dialog.Order + " №" + 
